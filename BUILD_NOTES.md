@@ -70,6 +70,14 @@ This produces a proper web application with:
 
 ### Local Development
 ```bash
+# Clone and navigate to the repository
+git clone https://github.com/dazzleduck-web/dazzleduck-ui.git
+cd dazzleduck-ui
+
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev  # Runs dev server on port 5174
 ```
 

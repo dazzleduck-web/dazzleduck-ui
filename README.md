@@ -131,8 +131,9 @@ Supports three visualization modes:
 ## Installation and build
 
 ```bash
-# Navigate to frontend directory
-cd ui/arrow-js-frontend
+# Clone the repository
+git clone https://github.com/dazzleduck-web/dazzleduck-ui.git
+cd dazzleduck-ui
 
 # Install dependencies
 npm install
