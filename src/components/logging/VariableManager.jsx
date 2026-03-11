@@ -56,6 +56,10 @@ const VariableManager = ({ query, variables, onUpdateVariables }) => {
         const foundVars = extractVariables();
         if (foundVars.length === 0) {
             setDefaultValues({});
+            // Clear all existing variables if there are any
+            if (Object.keys(variables).length > 0) {
+                onUpdateVariables({});
+            }
             return;
         }
 
@@ -225,7 +229,7 @@ const VariableManager = ({ query, variables, onUpdateVariables }) => {
                                     className="flex items-center flex-wrap gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200"
                                 >
                                     {/* Variable Name */}
-                                    <div className="font-mono text-xs font-medium text-gray-700 break-words">
+                                    <div className="font-mono text-xs font-medium text-gray-700 wrap-break-word">
                                         {"{" + name + "}"}
                                     </div>
 
