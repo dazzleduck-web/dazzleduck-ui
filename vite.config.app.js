@@ -50,7 +50,7 @@ export default defineConfig({
           vendor: ['react', 'react-dom'],
           router: ['react-router-dom'],
           charts: ['d3'],
-          utils: ['js-cookie', 'uuidv4']
+          utils: ['js-cookie', 'uuid']
         }
       }
     }

@@ -56,6 +56,10 @@ const VariableManager = ({ query, variables, onUpdateVariables }) => {
         const foundVars = extractVariables();
         if (foundVars.length === 0) {
             setDefaultValues({});
+            // Clear all existing variables if there are any
+            if (Object.keys(variables).length > 0) {
+                onUpdateVariables({});
+            }
             return;
         }
 
@@ -190,7 +194,7 @@ const VariableManager = ({ query, variables, onUpdateVariables }) => {
 
             {/* Variables Dropdown Panel - appears beside the button */}
             {showModal && (
-                <div ref={dropdownRef} className="absolute right-13 top-29 bg-white rounded-xl shadow-2xl p-4 w-80 max-h-96 overflow-y-auto z-30 border border-gray-200">
+                <div ref={dropdownRef} className="absolute right-13 top-29 bg-white rounded-xl shadow-2xl p-4 w-lg max-h-96 overflow-y-auto z-30 border border-gray-200">
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-semibold text-gray-800">
                             Query Variables
@@ -222,10 +226,10 @@ const VariableManager = ({ query, variables, onUpdateVariables }) => {
                             {Object.entries(variables).map(([name, value]) => (
                                 <div
                                     key={name}
-                                    className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200"
+                                    className="flex items-center flex-wrap gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200"
                                 >
                                     {/* Variable Name */}
-                                    <div className="shrink-0 font-mono text-xs font-medium text-gray-700">
+                                    <div className="font-mono text-xs font-medium text-gray-700 wrap-break-word">
                                         {"{" + name + "}"}
                                     </div>
 
@@ -238,7 +242,7 @@ const VariableManager = ({ query, variables, onUpdateVariables }) => {
                                                 onChange={(e) => setTempValue(e.target.value)}
                                                 onKeyDown={handleKeyDown}
                                                 placeholder="Enter value..."
-                                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                className="flex-1 px-2 py-1 min-w-xs h-auto text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                 autoFocus
                                             />
                                             <button
@@ -259,7 +263,7 @@ const VariableManager = ({ query, variables, onUpdateVariables }) => {
                                     ) : (
                                         <div className="flex-1 flex items-center gap-1">
                                             <div
-                                                className="flex-1 px-2 py-1 text-xs bg-white border border-gray-200 rounded min-h-6 flex items-center cursor-text hover:bg-gray-50 transition"
+                                                className="flex-1 px-2 py-1 text-xs bg-white border border-gray-200 rounded min-h-6 flex items-center cursor-text  transition"
                                                 title={value || "No value set"}
                                                 onDoubleClick={() => startEdit(name, value)}
                                             >

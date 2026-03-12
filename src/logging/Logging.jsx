@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { HiOutlineArrowUp, HiOutlineArrowDown } from "react-icons/hi";
 import "../App.css";
 import { useLogging } from "../context/LoggingContext";
 import { useQueryManagement } from "../hooks/useQueryManagement";
@@ -17,6 +18,7 @@ const Logging = () => {
         cancelQuery,
         saveSession,
         loadSession,
+        loadSessionFromUrl,
         restoreSession,
         connectionInfo,
     } = useLogging();
@@ -54,6 +56,7 @@ const Logging = () => {
     const sessionManagement = useSessionManagement(
         saveSession,
         loadSession,
+        loadSessionFromUrl,
         restoreSession,
         queryManagement.rows,
         connectionForm.populateConnectionData,
@@ -67,8 +70,16 @@ const Logging = () => {
         queryManagement.resetRows();
     };
 
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const scrollToBottom = () => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    };
+
     return (
-        <div className="relative min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 p-10 space-y-10">
+        <div className="relative min-h-screen bg-linear-to-br from-gray-50 to-gray-200 p-10 space-y-10">
             {/* Connection Panel */}
             <ConnectionPanel
                 showConnection={showConnection}
@@ -91,7 +102,9 @@ const Logging = () => {
                 fileInputRef={sessionManagement.fileInputRef}
                 handleSaveSession={sessionManagement.handleSaveSession}
                 handleOpenSession={sessionManagement.handleOpenSession}
+                handleImportFromUrl={sessionManagement.handleImportFromUrl}
                 openFileDialog={sessionManagement.openFileDialog}
+                sessionName={sessionManagement.sessionName}
             />
 
             {/* Tabs */}
@@ -135,18 +148,27 @@ const Logging = () => {
                     <div className="flex justify-evenly mt-10 gap-5">
                         <button
                             onClick={queryManagement.addRow}
-                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-md"
+                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-md cursor-pointer"
                         >
                             Add New Query Row
                         </button>
 
-                        <button
-                            onClick={queryManagement.runAllQueries}
-                            disabled={!connectionForm.isConnected || queryManagement.isRunningAll}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md disabled:opacity-50"
-                        >
-                            {queryManagement.isRunningAll ? "Running..." : "Run Queries"}
-                        </button>
+                        <div className="flex gap-5">
+                            <button
+                                onClick={queryManagement.toggleAllRows}
+                                className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-md cursor-pointer"
+                            >
+                                {queryManagement.rows.every(row => !row.showPanel) ? "Show Queries" : "Hide Queries"}
+                            </button>
+
+                            <button
+                                onClick={queryManagement.runAllQueries}
+                                disabled={!connectionForm.isConnected || queryManagement.isRunningAll}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md disabled:opacity-50 cursor-pointer"
+                            >
+                                {queryManagement.isRunningAll ? "Running..." : "Run Queries"}
+                            </button>
+                        </div>
                     </div>
                 </>
             )}
@@ -164,6 +186,24 @@ const Logging = () => {
                     />
                 </div>
             )}
+
+            {/* Scroll buttons */}
+            <div className="hidden md:flex fixed bottom-5 right-2 xl:right-5 flex-col gap-2 z-50">
+                <button
+                    onClick={scrollToTop}
+                    className="w-8 h-8 bg-neutral-600 hover:bg-neutral-700 text-white rounded-full shadow-lg flex items-center justify-center transition cursor-pointer"
+                    title="Scroll to Top"
+                >
+                    <HiOutlineArrowUp size={17} />
+                </button>
+                <button
+                    onClick={scrollToBottom}
+                    className="w-8 h-8 bg-neutral-600 hover:bg-neutral-700 text-white rounded-full shadow-lg flex items-center justify-center transition cursor-pointer"
+                    title="Scroll to Bottom"
+                >
+                    <HiOutlineArrowDown size={17} />
+                </button>
+            </div>
 
             <PopupMessage
                 message={popup.message}

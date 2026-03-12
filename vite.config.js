@@ -29,7 +29,7 @@ export default defineConfig({
       fileName: (format) => `arrow-ui.${format}.js`,
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react-router-dom', 'react-icons', 'react-hook-form', 'js-cookie', 'uuidv4', 'd3'],
+      external: ['react', 'react-dom', 'react-router-dom', 'react-icons', 'react-hook-form', 'js-cookie', 'd3', 'uuid'],
       output: {
         globals: {
           react: 'React',
@@ -38,8 +38,8 @@ export default defineConfig({
           'react-icons': 'ReactIcons',
           'react-hook-form': 'ReactHookForm',
           'js-cookie': 'Cookies',
-          'uuidv4': 'uuidv4',
           'd3': 'd3',
+          'uuid': 'uuid',
         },
       },
     },

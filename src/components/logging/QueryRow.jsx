@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { HiOutlineChevronDoubleUp, HiOutlineChevronDoubleDown, HiOutlineX } from "react-icons/hi";
 import QueryResults from "./QueryResults";
 import VariableManager from "./VariableManager";
@@ -19,9 +19,35 @@ const QueryRow = ({
     const { logs = [], loading = false, error = null } = result || {};
     const variables = row.variables || {};
 
+    // State for editable Results title
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [titleValue, setTitleValue] = useState(row.resultTitle || "Results");
+
     // Handle updating variables for this row
     const handleUpdateVariables = (updatedVariables) => {
         updateRow(row.id, "variables", updatedVariables);
+    };
+
+    // Handle Results title editing
+    const handleTitleDoubleClick = () => {
+        setIsEditingTitle(true);
+        setTitleValue(row.resultTitle || "Results");
+    };
+
+    const handleTitleSave = () => {
+        if (titleValue.trim() && titleValue.trim() !== "Results") {
+            updateRow(row.id, "resultTitle", titleValue.trim());
+        } else {
+            updateRow(row.id, "resultTitle", "");
+        }
+        setIsEditingTitle(false);
+    };
+
+    const handleTitleKeyDown = (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleTitleSave();
+        }
     };
 
     return (
@@ -124,7 +150,24 @@ const QueryRow = ({
                     }`}
             >
                 <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-2xl font-semibold text-gray-800">Results</h2>
+                    {isEditingTitle ? (
+                        <input
+                            type="text"
+                            value={titleValue}
+                            onChange={(e) => setTitleValue(e.target.value)}
+                            onKeyDown={handleTitleKeyDown}
+                            onBlur={handleTitleSave}
+                            className="text-2xl font-semibold text-gray-800 border border-neutral-300 bg-neutral-100 rounded px-2 py-1 focus:outline-none"
+                            autoFocus
+                        />
+                    ) : (
+                        <h2 className="text-2xl font-semibold text-gray-800 hover:bg-neutral-50 border border-transparent rounded px-2 py-1 cursor-text transition select-none"
+                            onDoubleClick={handleTitleDoubleClick}
+                            title="Double-click to edit"
+                        >
+                            {row.resultTitle || "Results"}
+                        </h2>
+                    )}
 
                     {/* View selection radio buttons */}
                     <div className="flex items-center gap-5">

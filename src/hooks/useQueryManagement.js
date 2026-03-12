@@ -1,11 +1,11 @@
 import { useState, useRef } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 
 const DEFAULT_VIEW = "table";
 
 export const useQueryManagement = (executeQuery, cancelQuery, isConnected, connection) => {
     const [rows, setRows] = useState([
-        { id: "1-" + uuidv4(), showPanel: true, query: "", view: DEFAULT_VIEW, variables: {} },
+        { id: "1-" + uuid(), showPanel: true, query: "", view: DEFAULT_VIEW, variables: {}, resultTitle: "" },
     ]);
     const [results, setResults] = useState({});
     const [queryIds, setQueryIds] = useState({});
@@ -44,10 +44,10 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
     };
 
     const addRow = () => {
-        const newId = nextId.current++ + "-" + uuidv4();
+        const newId = nextId.current++ + "-" + uuid();
         setRows((prev) => [
             ...prev,
-            { id: newId, showPanel: true, query: "", view: DEFAULT_VIEW, variables: {} },
+            { id: newId, showPanel: true, query: "", view: DEFAULT_VIEW, variables: {}, resultTitle: "" },
         ]);
     };
 
@@ -250,7 +250,7 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
     };
 
     const resetRows = () => {
-        setRows([{ id: "1-" + uuidv4(), showPanel: true, query: "", view: DEFAULT_VIEW, variables: {} }]);
+        setRows([{ id: "1-" + uuid(), showPanel: true, query: "", view: DEFAULT_VIEW, variables: {}, resultTitle: "" }]);
         setResults({});
         setQueryIds({});
         nextId.current = 2;
@@ -259,17 +259,25 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
     const restoreRows = (queries) => {
         if (queries && queries.length > 0) {
             const restoredRows = queries.map((q, index) => ({
-                id: (index + 1) + "-" + uuidv4(),
+                id: (index + 1) + "-" + uuid(),
                 showPanel: true,
                 query: q.query,
                 view: DEFAULT_VIEW,
-                variables: q.variables || {}
+                variables: q.variables || {},
+                resultTitle: q.resultTitle || ""
             }));
 
             setRows(restoredRows);
             nextId.current = queries.length + 1;
             setResults({});
         }
+    };
+
+    const toggleAllRows = () => {
+        const allCollapsed = rows.every(row => !row.showPanel);
+        setRows(prev =>
+            prev.map(r => ({ ...r, showPanel: allCollapsed }))
+        );
     };
 
     return {
@@ -287,6 +295,7 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
         clearRowLogs,
         resetRows,
         restoreRows,
+        toggleAllRows,
         searchData,
         searchLoading,
         searchError,

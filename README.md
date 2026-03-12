@@ -30,7 +30,7 @@ The Arrow JS Frontend is a feature-rich web application that connects to the Daz
 - **Charts:** D3.js for custom chart visualizations
 - **Testing:** Vitest with React Testing Library
 - **Icons:** React Icons (Heroicons, React Icons)
-- **UUID Generation:** uuidv4
+- **UUID Generation:** uuid
 
 ---
 
@@ -131,8 +131,9 @@ Supports three visualization modes:
 ## Installation and build
 
 ```bash
-# Navigate to frontend directory
-cd ui/arrow-js-frontend
+# Clone the repository
+git clone https://github.com/dazzleduck-web/dazzleduck-ui.git
+cd dazzleduck-ui
 
 # Install dependencies
 npm install

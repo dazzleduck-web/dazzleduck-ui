@@ -25,6 +25,7 @@ const ConnectionPanel = ({
     fileInputRef,
     handleSaveSession,
     handleOpenSession,
+    handleImportFromUrl,
     openFileDialog
 }) => {
     return (
@@ -152,6 +153,7 @@ const ConnectionPanel = ({
                     fileInputRef={fileInputRef}
                     handleSaveSession={handleSaveSession}
                     handleOpenSession={handleOpenSession}
+                    handleImportFromUrl={handleImportFromUrl}
                     openFileDialog={openFileDialog}
                 />
             </div>

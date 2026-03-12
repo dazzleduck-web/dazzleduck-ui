@@ -371,7 +371,8 @@ export const LoggingProvider = ({ children }) => {
             },
             queries: currentQueries.map(q => ({
                 query: q.query,
-                variables: q.variables || {}
+                variables: q.variables || {},
+                resultTitle: q.resultTitle || ""
             }))
         };
     }, [connectionInfo]);
@@ -402,6 +403,33 @@ export const LoggingProvider = ({ children }) => {
 
             reader.readAsText(file);
         });
+    }, []);
+
+    // --- Load Session from URL ---
+    const loadSessionFromUrl = useCallback(async (url) => {
+        try {
+            const trimmedUrl = url.trim();
+
+            // Validate URL protocol - only allow HTTP/HTTPS
+            if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                throw new Error("Only HTTP and HTTPS URLs are supported");
+            }
+
+            const response = await axios.get(trimmedUrl);
+            const sessionData = response.data;
+
+            // Validate session data structure
+            if (!sessionData.connection || !sessionData.queries) {
+                throw new Error("Invalid session file format");
+            }
+
+            return sessionData;
+        } catch (err) {
+            if (err.response) {
+                throw new Error(`Failed to fetch session: ${err.response.status} ${err.response.statusText}`);
+            }
+            throw new Error("Failed to load session from URL: " + err.message);
+        }
     }, []);
 
     // --- Restore Session ---
@@ -435,6 +463,7 @@ export const LoggingProvider = ({ children }) => {
                 cancelQuery,
                 saveSession,
                 loadSession,
+                loadSessionFromUrl,
                 restoreSession,
                 connectionInfo,
             }}>

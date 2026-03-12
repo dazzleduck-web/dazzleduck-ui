@@ -1,8 +1,9 @@
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 
 export const useSessionManagement = (
     saveSession,
     loadSession,
+    loadSessionFromUrl,
     restoreSession,
     rows,
     populateConnectionData,
@@ -13,7 +14,11 @@ export const useSessionManagement = (
 
     const handleSaveSession = async () => {
         try {
-            const currentQueries = rows.map(row => ({ query: row.query, variables: row.variables }));
+            const currentQueries = rows.map(row => ({
+                query: row.query,
+                variables: row.variables,
+                resultTitle: row.resultTitle || ""
+            }));
             const sessionData = saveSession(currentQueries);
             const json = JSON.stringify(sessionData, null, 2);
 
@@ -74,14 +79,70 @@ export const useSessionManagement = (
         }
     };
 
+    const handleImportFromUrl = async (url) => {
+        if (!url?.trim()) {
+            showPopup("Please enter a session URL", "error");
+            return;
+        }
+
+        const trimmedUrl = url.trim();
+
+        // Validate URL protocol - only allow HTTP/HTTPS
+        if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+            if (trimmedUrl.startsWith("s3://")) {
+                showPopup("S3 URLs are not supported. Please use a presigned HTTPS URL or download the file and import it directly.", "error");
+            } else {
+                showPopup("Only HTTP and HTTPS URLs are supported for session import.", "error");
+            }
+            return;
+        }
+
+        try {
+            const sessionData = await loadSessionFromUrl(trimmedUrl);
+            await restoreSession(sessionData);
+
+            populateConnectionData(sessionData);
+            restoreRows(sessionData.queries || []);
+
+            showPopup(`Session loaded from URL. Please enter password and click Connect.`, "success");
+        } catch (err) {
+            showPopup("Failed to load session from URL: " + err.message, "error");
+        }
+    };
+
     const openFileDialog = () => {
         fileInputRef.current?.click();
     };
+
+    // Auto-import from URL parameter on mount
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionUrl = urlParams.get('session');
+
+        if (sessionUrl) {
+            const loadFromUrl = async () => {
+                try {
+                    const sessionData = await loadSessionFromUrl(sessionUrl);
+                    await restoreSession(sessionData);
+
+                    populateConnectionData(sessionData);
+                    restoreRows(sessionData.queries || []);
+
+                    showPopup(`Session loaded from URL. Please enter password and click Connect.`, "success");
+                } catch (err) {
+                    showPopup("Failed to auto-load session from URL: " + err.message, "error");
+                }
+            };
+
+            loadFromUrl();
+        }
+    }, []);
 
     return {
         fileInputRef,
         handleSaveSession,
         handleOpenSession,
+        handleImportFromUrl,
         openFileDialog,
     };
 };
