@@ -8,7 +8,9 @@
   "readme": "src/components/package/LIBRARY.md",
   "files": [
     "dist",
-    "src/components/package/LIBRARY.md"
+    "src/components/package/LIBRARY.md",
+    "src/components/package/DazzleduckUI.jsx",
+    "src/components/package/utils"
   ],
   "homepage": "https://github.com/dazzleduck-web/dazzleduck-ui#readme",
   "repository": {
