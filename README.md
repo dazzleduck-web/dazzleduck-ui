@@ -42,6 +42,7 @@ The Arrow JS Frontend is a feature-rich web application that connects to the Daz
 - Server URL, username, and password fields
 - Real-time connection status indicator
 - JWT-based authentication with automatic token management
+- **JWT-only authentication mode**: Direct JWT token login for API integrations
 - Cookie-based session persistence across page refreshes
 - Advanced settings toggle for additional parameters
 
@@ -72,6 +73,7 @@ The Arrow JS Frontend is a feature-rich web application that connects to the Daz
 - ZSTD decompression support for compressed Arrow data
 - Query timeout handling (5 minutes)
 - Error message extraction from server responses
+- **Variable Substitution**: Support for query parameter substitution using `{variable}` syntax
 
 **Query Cancellation**
 - Cancel running queries via query ID
@@ -120,8 +122,6 @@ Supports three visualization modes:
 ### Search Functionality
 
 **SearchTable Component**
-- Full-text search across query results
-- Time range filtering (24 hours, 7 days, 30 days)
 - Field sidebar for column selection
 - Pagination with customizable page size
 - Row expansion for detailed JSON view
@@ -214,7 +214,8 @@ The frontend integrates with the DazzleDuck SQL HTTP Server via the following en
 
 Global state management providing:
 - `executeQuery(url, query, splitSize, jwt, queryId)` - Execute SQL
-- `login(url, username, password, splitSize, claims)` - Authenticate
+- `login(url, username, password, splitSize, claims)` - Authenticate with credentials
+- `loginWithJwt(url, jwt, splitSize, username)` - Authenticate with JWT token only
 - `logout()` - Clear session and cookies
 - `cancelQuery(url, query, queryId)` - Cancel running query
 - `saveSession(queries)` - Export session state
@@ -239,6 +240,71 @@ Sidebar panel for:
 - Claims management
 - Session save/restore buttons
 - Connection status indicator
+
+### DazzleduckUI
+
+Simplified package component for quick integration:
+- Single component with three display modes (search, analytics, chart)
+- Built-in prop validation and error handling
+- Automatic debounced search with memoization
+- Variable substitution support
+- JWT-only authentication mode
+- See "NPM Library Usage" section for detailed documentation
+
+---
+
+## NPM Library Usage
+
+The `DazzleduckUI` component provides a simplified interface for quick integration:
+
+```bash
+npm install dazzleduck-arrow-ui --legacy-peer-deps
+```
+
+### Basic Usage
+
+```jsx
+import { QueryDashboardProvider, DazzleduckUI } from 'dazzleduck-arrow-ui';
+
+<QueryDashboardProvider>
+  <DazzleduckUI
+    tab="analytics"  // "search", "analytics", or "chart"
+    jwt="Bearer your-jwt-token"
+    config={{
+      serverUrl: "http://localhost:8081",
+      query: "SELECT * FROM {tableName}",
+      variables: { tableName: "users" }  // Optional variable substitution
+    }}
+    view="table"      // "table", "line", "bar", "pie"
+    width={500}        // Optional for charts
+    height={400}       // Optional for charts
+  />
+</QueryDashboardProvider>
+```
+
+### Props Reference
+
+| Prop | Type | Required | Default | Description |
+| :--- | :--- | :---: | :---: | :--- |
+| `tab` | `"search" \| "analytics" \| "chart"` | ✅ Yes | - | Display mode |
+| `jwt` | `string` | ✅ Yes | - | JWT authentication token |
+| `config` | `object` | ✅ Yes | - | Query configuration object |
+| `config.serverUrl` | `string` | ✅ Yes | - | DazzleDuck server URL |
+| `config.query` | `string` | ✅ Yes | - | SQL query to execute |
+| `config.variables` | `object` | ❌ No | - | Query variables for substitution |
+| `view` | `"table" \| "line" \| "bar" \| "pie"` | ❌ No | `"table"` | View type for results |
+| `width` | `number` | ❌ No | `1200` | Chart width |
+| `height` | `number` | ❌ No | `430` | Chart height |
+
+### Features
+
+- **Three display modes**: Search, Analytics, Chart
+- **Auto-debounced search**: 300ms delay for optimized performance
+- **Variable substitution**: `{variable}` syntax in queries
+- **JWT-only authentication**: Direct token-based login
+- **Memoized filtering**: Optimized for large datasets
+- **Built-in validation**: Error messages for missing props
+- **Responsive charts**: D3.js visualizations with customizable dimensions
 
 ---
 

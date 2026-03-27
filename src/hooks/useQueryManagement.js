@@ -3,6 +3,26 @@ import { v4 as uuid } from "uuid";
 
 const DEFAULT_VIEW = "table";
 
+// Substitute variables in the query (also strips default values like {variable:default})
+export const substituteVariables = (query, variables) => {
+    let substitutedQuery = query;
+    Object.entries(variables).forEach(([name, value]) => {
+        // Skip empty variable names (to avoid replacing {})
+        if (!name || name.trim() === "") {
+            return;
+        }
+        // Replace {variable_name} or {variable_name:default} with the value
+        // Escape special regex characters in variable name
+        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Match {name} or {name:default} patterns that are NOT preceded by \
+        const pattern = new RegExp(`(?<!\\\\)\\{${escapedName}(?::[^}]*)?\\}`, 'g');
+        substitutedQuery = substitutedQuery.replace(pattern, value || '');
+    });
+    // Convert escaped braces back to literal braces (\{ -> {, \} -> })
+    substitutedQuery = substitutedQuery.replace(/\\{/g, '{').replace(/\\}/g, '}');
+    return substitutedQuery;
+};
+
 export const useQueryManagement = (executeQuery, cancelQuery, isConnected, connection) => {
     const [rows, setRows] = useState([
         { id: "1-" + uuid(), showPanel: true, query: "", view: DEFAULT_VIEW, variables: {}, resultTitle: "" },
@@ -21,26 +41,6 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
 
     const generateQueryId = () => {
         return queryIdCounter.current++;
-    };
-
-    // Substitute variables in the query (also strips default values like {variable:default})
-    const substituteVariables = (query, variables) => {
-        let substitutedQuery = query;
-        Object.entries(variables).forEach(([name, value]) => {
-            // Skip empty variable names (to avoid replacing {})
-            if (!name || name.trim() === "") {
-                return;
-            }
-            // Replace {variable_name} or {variable_name:default} with the value
-            // Escape special regex characters in variable name
-            const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            // Match {name} or {name:default} patterns that are NOT preceded by \
-            const pattern = new RegExp(`(?<!\\\\)\\{${escapedName}(?::[^}]*)?\\}`, 'g');
-            substitutedQuery = substitutedQuery.replace(pattern, value || '');
-        });
-        // Convert escaped braces back to literal braces (\{ -> {, \} -> })
-        substitutedQuery = substitutedQuery.replace(/\\{/g, '{').replace(/\\}/g, '}');
-        return substitutedQuery;
     };
 
     const addRow = () => {
