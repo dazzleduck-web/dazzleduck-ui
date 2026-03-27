@@ -423,8 +423,11 @@ The UI components are published as `dazzleduck-arrow-ui` on NPM.
 ### Publishing
 
 ```bash
+# Do login
+npm login
+
 # Build library
-npm run build
+npm run build:lib
 
 # Bump version
 npm version patch  # or minor, major
@@ -432,6 +435,17 @@ npm version patch  # or minor, major
 # Publish to NPM
 npm publish --access public
 ```
+OR
+
+```bash
+# Do login
+npm login
+
+# publish/release
+npm run release
+```
+
+**Note:** When publishing, the package automatically uses `LIBRARY.md` as documentation via backup/restore scripts. Your local `README.md` is preserved for development.
 
 ### Using the Package
 

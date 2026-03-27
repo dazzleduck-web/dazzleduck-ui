@@ -1,6 +1,6 @@
 {
   "name": "dazzleduck-arrow-ui",
-  "version": "1.0.16",
+  "version": "1.0.18",
   "description": "Reusable UI components from Arrow JS",
   "main": "dist/arrow-ui.cjs.js",
   "module": "dist/arrow-ui.es.js",
@@ -38,7 +38,9 @@
     "lint": "eslint .",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "release": "npm version patch && npm run build && npm publish"
+    "release": "npm version patch && npm run build:lib && npm publish",
+    "prepublishOnly": "cp README.md README_BACKUP.md && cp src/components/package/LIBRARY.md README.md && echo '✅ LIBRARY.md copied to README.md for NPM publication'",
+    "postpublish": "mv README_BACKUP.md README.md && echo '✅ Original README.md restored'"
   },
   "peerDependencies": {
     "d3": "^7.9.0",

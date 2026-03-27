@@ -573,7 +573,7 @@ See package repository for licensing information.
 
 ## Version History
 
-### v1.0.15
+### v1.0.16+
 - ✅ Added DazzleduckUI component
 - ✅ Implemented debounced search with memoization
 - ✅ Added variable substitution support
