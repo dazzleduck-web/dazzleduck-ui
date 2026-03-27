@@ -6,18 +6,18 @@ import { formatPossibleDate } from "./utils/DateNormalizer";
  * Universal chart display component
  * Supports Line, Bar, and Pie charts.
  * Auto-detects numeric, timestamp, and label columns.
- * 
+ *
  * Props:
- *  - logs: Array of objects (query results)
+ *  - data: Array of objects (query results)
  *  - view: "line" | "bar" | "pie"
  *  - width (optional): number → chart width
  *  - height (optional): number → chart height
  */
-export default function DisplayCharts({ logs, view, width, height }) {
-  if (!logs || logs.length === 0)
+export default function DisplayCharts({ data, view, width, height }) {
+  if (!data || data.length === 0)
     return <p className="text-gray-500 text-center p-6">No data to visualize.</p>;
 
-  const keys = Object.keys(logs[0]);
+  const keys = Object.keys(data[0]);
   if (keys.length === 0)
     return <p className="text-gray-500">No valid data columns.</p>;
 
@@ -57,7 +57,7 @@ export default function DisplayCharts({ logs, view, width, height }) {
 
     // Helper: check if column is numeric (NOT timestamps!)
     const isNumericColumn = (key) => {
-      return logs.every(row => {
+      return data.every(row => {
         const v = row[key];
         if (v == null || v === "") return true;
         if (isTimestamp(v)) return false;
@@ -83,7 +83,7 @@ export default function DisplayCharts({ logs, view, width, height }) {
       labelKey = k1;
     }
 
-    const pieData = logs.map(row => ({
+    const pieData = data.map(row => ({
       label: String(formatPossibleDate(row[labelKey])),
       value: Number(row[numericKey]) || 0,
     }));
@@ -107,7 +107,7 @@ export default function DisplayCharts({ logs, view, width, height }) {
   let zKey = col3;
 
   // Between col2 & col3 → detect numeric for Y axis
-  const sample = logs.find(r => r[col2] !== undefined && r[col3] !== undefined);
+  const sample = data.find(r => r[col2] !== undefined && r[col3] !== undefined);
   if (sample) {
     const isCol2Numeric = !isNaN(Number(sample[col2]));
     const isCol3Numeric = !isNaN(Number(sample[col3]));
@@ -118,7 +118,7 @@ export default function DisplayCharts({ logs, view, width, height }) {
   }
 
   // Normalize data for D3 charts
-  chartData = logs.map(row => {
+  chartData = data.map(row => {
     const xValue = formatPossibleDate(row[xKey]);
     const yValue = Number(row[yKey]) || 0;
     const zValue = zKey ? String(formatPossibleDate(row[zKey])) : "Series";

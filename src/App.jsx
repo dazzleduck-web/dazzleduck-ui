@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Logging from "./logging/Logging";
+import QueryDashboard from "./querydashboard/QueryDashboard";
 import Navbar from "./components/navbar";
 
 function App() {
@@ -8,8 +8,8 @@ function App() {
       <Router>
       <Navbar />
         <Routes>
-            <Route path="/" element={<Logging />} />
-            <Route path="/logs" element={<Logging />} />
+            <Route path="/" element={<QueryDashboard />} />
+            <Route path="/search" element={<QueryDashboard />} />
         </Routes>
       </Router>
     </div>

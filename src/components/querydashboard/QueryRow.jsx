@@ -14,15 +14,17 @@ const QueryRow = ({
     removeRow,
     handleRunQuery,
     handleCancelQuery,
-    clearRowLogs
+    clearRowResults
 }) => {
-    const { logs = [], loading = false, error = null } = result || {};
+    const { data = [], loading = false, error = null } = result || {};
     const variables = row.variables || {};
 
     // State for editable Results title
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [titleValue, setTitleValue] = useState(row.resultTitle || "Results");
 
+    // Available view options
+    const views = ["table", "line", "bar", "pie"];
     // Handle updating variables for this row
     const handleUpdateVariables = (updatedVariables) => {
         updateRow(row.id, "variables", updatedVariables);
@@ -134,8 +136,8 @@ const QueryRow = ({
                             {isCancelling ? "Canceling..." : "Cancel"}
                         </button>
                         <button
-                            onClick={() => clearRowLogs(row.id)}
-                            disabled={loading || logs.length === 0}
+                            onClick={() => clearRowResults(row.id)}
+                            disabled={loading || data.length === 0}
                             className="bg-gray-400 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-md transition disabled:opacity-50 cursor-pointer"
                         >
                             Clear
@@ -171,7 +173,7 @@ const QueryRow = ({
 
                     {/* View selection radio buttons */}
                     <div className="flex items-center gap-5">
-                        {["table", "line", "bar", "pie"].map((v) => (
+                        {views.map((v) => (
                             <label
                                 key={v}
                                 className="flex items-center text-sm cursor-pointer"
@@ -191,7 +193,7 @@ const QueryRow = ({
                 </div>
 
                 <QueryResults
-                    logs={logs}
+                    data={data}
                     loading={loading}
                     error={error}
                     view={row.view}

@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { LoggingProvider, useLogging } from '../src/context/LoggingContext';
+import { QueryDashboardProvider, useQueryDashboard } from '../src/context/QueryDashboardContext';
 import Cookies from 'js-cookie';
 
 const SERVER_URL = 'http://localhost:8081';
 const USERNAME = 'admin';
 const PASSWORD = 'admin';
 
-const renderUseLogging = () =>
-    renderHook(() => useLogging(), {
-        wrapper: ({ children }) => <LoggingProvider>{children}</LoggingProvider>,
+const renderUseQueryDashboard = () =>
+    renderHook(() => useQueryDashboard(), {
+        wrapper: ({ children }) => <QueryDashboardProvider>{children}</QueryDashboardProvider>,
     });
 
-describe('LoggingContext Integration Tests', () => {
+describe('QueryDashboardContext Integration Tests', () => {
     let jwtToken;
     let result;
 
@@ -21,7 +21,7 @@ describe('LoggingContext Integration Tests', () => {
         Cookies.remove('jwtToken');
         Cookies.remove('connectionInfo');
 
-        const hook = renderUseLogging();
+        const hook = renderUseQueryDashboard();
         result = hook.result;
         // login now takes (serverUrl, username, password, splitSize, claims)
         jwtToken = await result.current.login(SERVER_URL, USERNAME, PASSWORD, 0, null);

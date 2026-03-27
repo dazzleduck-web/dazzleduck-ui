@@ -3,14 +3,14 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import "@testing-library/jest-dom";
 import React from "react";
 import Cookies from "js-cookie";
-import { LoggingProvider } from "../src/context/LoggingContext";
-import Logging from "../src/logging/Logging";
+import { QueryDashboardProvider } from "../src/context/QueryDashboardContext";
+import QueryDashboard from "../src/querydashboard/QueryDashboard";
 
 const SERVER_URL = "http://localhost:8081";
 const USERNAME = "admin";
 const PASSWORD = "admin";
 
-describe("Logging Component Integration Tests", () => {
+describe("QueryDashboard Component Integration Tests", () => {
     beforeAll(() => {
         // Clear cookies before test run
         Cookies.remove("jwtToken");
@@ -19,9 +19,9 @@ describe("Logging Component Integration Tests", () => {
 
     const setup = () =>
         render(
-            <LoggingProvider>
-                <Logging />
-            </LoggingProvider>
+            <QueryDashboardProvider>
+                <QueryDashboard />
+            </QueryDashboardProvider>
         );
 
     it("should connect successfully when valid credentials are provided", async () => {

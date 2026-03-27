@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import { HiOutlineArrowUp, HiOutlineArrowDown } from "react-icons/hi";
 import "../App.css";
-import { useLogging } from "../context/LoggingContext";
+import { useQueryDashboard } from "../context/QueryDashboardContext";
 import { useQueryManagement } from "../hooks/useQueryManagement";
 import { useConnectionForm } from "../hooks/useConnectionForm";
 import { useSessionManagement } from "../hooks/useSessionManagement";
-import ConnectionPanel from "../components/logging/ConnectionPanel";
-import QueryRow from "../components/logging/QueryRow";
+import ConnectionPanel from "../components/querydashboard/ConnectionPanel";
+import QueryRow from "../components/querydashboard/QueryRow";
 import PopupMessage from "../components/utils/PopupMessage";
-import SearchTable from "../components/logging/SearchTable";
+import SearchTable from "../components/querydashboard/SearchTable";
 
-const Logging = () => {
+const QueryDashboard = () => {
     const {
         executeQuery,
         login,
@@ -22,7 +22,7 @@ const Logging = () => {
         loadSessionFromUrl,
         restoreSession,
         connectionInfo,
-    } = useLogging();
+    } = useQueryDashboard();
 
     const [activeTab, setActiveTab] = useState("analytics"); // "analytics" | "search"
 
@@ -146,7 +146,7 @@ const Logging = () => {
                             removeRow={queryManagement.removeRow}
                             handleRunQuery={queryManagement.handleRunQuery}
                             handleCancelQuery={queryManagement.handleCancelQuery}
-                            clearRowLogs={queryManagement.clearRowLogs}
+                            clearRowResults={queryManagement.clearRowResults}
                         />
                     ))}
 
@@ -182,7 +182,7 @@ const Logging = () => {
             {activeTab === "search" && (
                 <div className="">
                     <SearchTable
-                        title="Search Logs"
+                        title="Search Results"
                         data={queryManagement.searchData}
                         loading={queryManagement.searchLoading}
                         searchQuery={queryManagement.searchQuery}
@@ -223,4 +223,4 @@ const Logging = () => {
     );
 };
 
-export default Logging;
+export default QueryDashboard;

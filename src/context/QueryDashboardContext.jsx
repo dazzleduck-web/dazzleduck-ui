@@ -22,9 +22,9 @@ const ZSTDCodec = {
     }
 };
 
-const LoggingContext = createContext();
+const QueryDashboardContext = createContext();
 
-export const LoggingProvider = ({ children }) => {
+export const QueryDashboardProvider = ({ children }) => {
     const FIVE_MINUTES_MS = 300000;
 
     // Register ZSTD codec for Arrow IPC (do this once on module load)
@@ -69,8 +69,8 @@ export const LoggingProvider = ({ children }) => {
                     columns.forEach((col) => (obj[col] = row[col]));
                     return obj;
                 });
-            } else if (Array.isArray(data?.logs)) {
-                tableData = data.logs;
+            } else if (Array.isArray(data?.results)) {
+                tableData = data.results;
             } else if (Array.isArray(data?.data)) {
                 tableData = data.data;
             } else if (Array.isArray(data)) {
@@ -498,7 +498,7 @@ export const LoggingProvider = ({ children }) => {
     }, []);
 
     return (
-        <LoggingContext.Provider
+        <QueryDashboardContext.Provider
             value={{
                 executeQuery,
                 login,
@@ -512,8 +512,8 @@ export const LoggingProvider = ({ children }) => {
                 connectionInfo,
             }}>
             {children}
-        </LoggingContext.Provider>
+        </QueryDashboardContext.Provider>
     );
 };
 
-export const useLogging = () => useContext(LoggingContext);
+export const useQueryDashboard = () => useContext(QueryDashboardContext);

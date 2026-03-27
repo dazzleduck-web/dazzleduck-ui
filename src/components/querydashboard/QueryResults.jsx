@@ -2,7 +2,7 @@ import React from "react";
 import DisplayCharts from "../DisplayCharts";
 import { formatPossibleDate } from "../utils/DateNormalizer";
 
-const QueryResults = ({ logs, loading, error, view, isConnected }) => {
+const QueryResults = ({ data, loading, error, view, isConnected }) => {
     if (loading) {
         return (
             <div className="border overflow-auto max-h-[450px] bg-white rounded-lg scrollbar-custom">
@@ -21,7 +21,7 @@ const QueryResults = ({ logs, loading, error, view, isConnected }) => {
         );
     }
 
-    if (logs.length === 0) {
+    if (data.length === 0) {
         return (
             <div className="border overflow-auto max-h-[450px] bg-white rounded-lg scrollbar-custom">
                 {!isConnected ? (
@@ -43,7 +43,7 @@ const QueryResults = ({ logs, loading, error, view, isConnected }) => {
                 <table className="w-full text-sm text-left border-separate border-spacing-0">
                     <thead className="sticky top-0 z-10 shadow-md custom-font">
                         <tr className="bg-blue-100 text-gray-800">
-                            {Object.keys(logs[0]).map((key) => (
+                            {Object.keys(data[0]).map((key) => (
                                 <th
                                     key={key}
                                     className="p-2 border border-gray-400 capitalize text-center"
@@ -54,7 +54,7 @@ const QueryResults = ({ logs, loading, error, view, isConnected }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {logs.map((r, i) => (
+                        {data.map((r, i) => (
                             <tr
                                 key={i}
                                 className="hover:bg-gray-100 transition duration-300"
@@ -78,7 +78,7 @@ const QueryResults = ({ logs, loading, error, view, isConnected }) => {
     return (
         <div className="border overflow-auto max-h-[450px] bg-white rounded-lg scrollbar-custom">
             <div className="p-2">
-                <DisplayCharts logs={logs} view={view} />
+                <DisplayCharts data={data} view={view} />
             </div>
         </div>
     );

@@ -210,7 +210,7 @@ The frontend integrates with the DazzleDuck SQL HTTP Server via the following en
 
 ## Key Components
 
-### LoggingContext
+### QueryDashboardContext
 
 Global state management providing:
 - `executeQuery(url, query, splitSize, jwt, queryId)` - Execute SQL
@@ -258,8 +258,8 @@ npm run test -- --coverage
 ```
 
 Test files are located in the `tests/` directory:
-- `Logging.test.jsx` - Main logging component tests
-- `LoggingContext.test.jsx` - Context provider tests
+- `QueryDashboard.test.jsx` - Main QueryDashboard component tests
+- `QueryDashboardContext.test.jsx` - Context provider tests
 - `setup.js` - Test environment configuration
 
 ---

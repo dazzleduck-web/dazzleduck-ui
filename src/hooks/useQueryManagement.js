@@ -76,10 +76,10 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
         const { url, splitSize } = connection;
 
         if (!isConnected) {
-            return { logs: [], error: "Not connected — click Connect", queryId: null };
+            return { data: [], error: "Not connected — click Connect", queryId: null };
         }
         if (!row.query?.trim()) {
-            return { logs: [], error: "Empty query — skipped", queryId: null };
+            return { data: [], error: "Empty query — skipped", queryId: null };
         }
 
         // Substitute variables in the query
@@ -90,21 +90,21 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
 
         try {
             const result = await executeQuery(url, queryWithVars, splitSize, null, queryId);
-            return { logs: result.data, error: null, queryId: result.queryId };
+            return { data: result.data, error: null, queryId: result.queryId };
         } catch (err) {
-            return { logs: [], error: err?.message || "Query failed", queryId: null };
+            return { data: [], error: err?.message || "Query failed", queryId: null };
         }
     };
 
     const handleRunQuery = async (row) => {
         const id = row.id;
-        setResults(prev => ({ ...prev, [id]: { logs: [], loading: true, error: null } }));
+        setResults(prev => ({ ...prev, [id]: { data: [], loading: true, error: null } }));
 
         const result = await runQueryForRow(row);
 
         setResults(prev => ({
             ...prev,
-            [id]: { logs: result.logs, loading: false, error: result.error },
+            [id]: { data: result.data, loading: false, error: result.error },
         }));
     };
 
@@ -142,7 +142,7 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
                 setResults(prev => ({
                     ...prev,
                     [id]: {
-                        logs: prev[id]?.logs || [],
+                        data: prev[id]?.data || [],
                         loading: false,
                         error: `Query cancelled (status: ${result.status})`,
                     },
@@ -181,7 +181,7 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
         const loadingState = {};
 
         rows.forEach(row => {
-            loadingState[row.id] = { logs: [], loading: true, error: null };
+            loadingState[row.id] = { data: [], loading: true, error: null };
         });
         setResults(prev => ({ ...prev, ...loadingState }));
 
@@ -192,7 +192,7 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
                 setResults(prev => ({
                     ...prev,
                     [id]: {
-                        logs: result.logs,
+                        data: result.data,
                         loading: false,
                         error: result.error
                     }
@@ -201,7 +201,7 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
                 setResults(prev => ({
                     ...prev,
                     [id]: {
-                        logs: [],
+                        data: [],
                         loading: false,
                         error: err?.message || "Query failed"
                     }
@@ -242,10 +242,10 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
         }
     };
 
-    const clearRowLogs = (id) => {
+    const clearRowResults = (id) => {
         setResults((prev) => ({
             ...prev,
-            [id]: { logs: [], loading: false, error: null },
+            [id]: { data: [], loading: false, error: null },
         }));
     };
 
@@ -292,7 +292,7 @@ export const useQueryManagement = (executeQuery, cancelQuery, isConnected, conne
         handleRunQuery,
         handleCancelQuery,
         runAllQueries,
-        clearRowLogs,
+        clearRowResults,
         resetRows,
         restoreRows,
         toggleAllRows,
