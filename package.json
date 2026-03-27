@@ -1,12 +1,34 @@
 {
   "name": "dazzleduck-arrow-ui",
-  "version": "1.0.15",
+  "version": "1.0.18",
   "description": "Reusable UI components from Arrow JS",
   "main": "dist/arrow-ui.cjs.js",
   "module": "dist/arrow-ui.es.js",
   "types": "dist/index.d.ts",
+  "readme": "src/components/package/LIBRARY.md",
   "files": [
-    "dist"
+    "dist",
+    "src/components/package/LIBRARY.md",
+    "src/components/package/DazzleduckUI.jsx",
+    "src/components/package/utils"
+  ],
+  "homepage": "https://github.com/dazzleduck-web/dazzleduck-ui#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dazzleduck-web/dazzleduck-ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dazzleduck-web/dazzleduck-ui/issues"
+  },
+  "keywords": [
+    "dazzleduck",
+    "arrow",
+    "sql",
+    "react",
+    "charts",
+    "data-visualization",
+    "query",
+    "database"
   ],
   "type": "module",
   "scripts": {
@@ -17,7 +39,10 @@
     "preview": "vite preview --config vite.config.app.js",
     "lint": "eslint .",
     "test": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release": "npm version patch && npm run build:lib && npm publish",
+    "prepublishOnly": "cp README.md README_BACKUP.md && cp src/components/package/LIBRARY.md README.md && echo '✅ LIBRARY.md copied to README.md for NPM publication'",
+    "postpublish": "mv README_BACKUP.md README.md && echo '✅ Original README.md restored'"
   },
   "peerDependencies": {
     "d3": "^7.9.0",

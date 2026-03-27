@@ -2,7 +2,7 @@ import React from "react";
 import DisplayCharts from "../DisplayCharts";
 import { formatPossibleDate } from "../utils/DateNormalizer";
 
-const QueryResults = ({ data, loading, error, view, isConnected }) => {
+const QueryResults = ({ data, loading, error, view, isConnected, width, height }) => {
     if (loading) {
         return (
             <div className="border overflow-auto max-h-[450px] bg-white rounded-lg scrollbar-custom">
@@ -78,7 +78,7 @@ const QueryResults = ({ data, loading, error, view, isConnected }) => {
     return (
         <div className="border overflow-auto max-h-[450px] bg-white rounded-lg scrollbar-custom">
             <div className="p-2">
-                <DisplayCharts data={data} view={view} />
+                <DisplayCharts data={data} view={view} width={width} height={height} />
             </div>
         </div>
     );
