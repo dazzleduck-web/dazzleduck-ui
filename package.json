@@ -1,12 +1,32 @@
 {
   "name": "dazzleduck-arrow-ui",
-  "version": "1.0.15",
+  "version": "0.0.27",
   "description": "Reusable UI components from Arrow JS",
   "main": "dist/arrow-ui.cjs.js",
   "module": "dist/arrow-ui.es.js",
   "types": "dist/index.d.ts",
+  "readme": "src/components/package/LIBRARY.md",
   "files": [
-    "dist"
+    "dist",
+    "src/components/package/LIBRARY.md"
+  ],
+  "homepage": "https://github.com/dazzleduck-web/dazzleduck-ui#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dazzleduck-web/dazzleduck-ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dazzleduck-web/dazzleduck-ui/issues"
+  },
+  "keywords": [
+    "dazzleduck",
+    "arrow",
+    "sql",
+    "react",
+    "charts",
+    "data-visualization",
+    "query",
+    "database"
   ],
   "type": "module",
   "scripts": {
@@ -17,7 +37,8 @@
     "preview": "vite preview --config vite.config.app.js",
     "lint": "eslint .",
     "test": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release": "npm version patch && npm run build && npm publish"
   },
   "peerDependencies": {
     "d3": "^7.9.0",
