@@ -5,10 +5,10 @@ import { useQueryDashboard } from "../context/QueryDashboardContext";
 import { useQueryManagement } from "../hooks/useQueryManagement";
 import { useConnectionForm } from "../hooks/useConnectionForm";
 import { useSessionManagement } from "../hooks/useSessionManagement";
-import ConnectionPanel from "../components/querydashboard/ConnectionPanel";
-import QueryRow from "../components/querydashboard/QueryRow";
+import ConnectionPanel from "../components/dashboardcomponents/ConnectionPanel";
+import QueryRow from "../components/dashboardcomponents/QueryRow";
 import PopupMessage from "../components/utils/PopupMessage";
-import SearchTable from "../components/querydashboard/SearchTable";
+import SearchTable from "../components/dashboardcomponents/SearchTable";
 
 const QueryDashboard = () => {
     const {
