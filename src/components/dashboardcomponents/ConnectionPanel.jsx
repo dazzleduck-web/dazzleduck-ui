@@ -124,7 +124,7 @@ const ConnectionPanel = ({
                                 <textarea
                                     value={jwtToken}
                                     onChange={(e) => setJwtToken(e.target.value)}
-                                    placeholder="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                                     rows={3}
                                     style={{ WebkitTextSecurity: showJwt ? "none" : "disc" }}
                                     className="w-full border border-gray-400 rounded-lg py-1 px-2 pr-8 font-mono text-xs resize-y scrollbar-hidden"
@@ -137,9 +137,6 @@ const ConnectionPanel = ({
                                     {showJwt ? <FaRegEye /> : <FaEyeSlash />}
                                 </button>
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Include the token type (e.g., "Bearer").
-                            </p>
                         </div>
                     )}
 
