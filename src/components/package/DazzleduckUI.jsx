@@ -48,24 +48,30 @@ const filterDataBySearch = (data, query) => {
  */
 const useDebounce = (callback, delay) => {
     const timeoutRef = useRef(null);
+    const callbackRef = useRef(callback);
+
+    // Keep callback ref in sync with latest callback
+    useEffect(() => {
+        callbackRef.current = callback;
+    }, [callback]);
 
     const debouncedCallback = useCallback((...args) => {
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
         }
         timeoutRef.current = setTimeout(() => {
-            callback(...args);
+            callbackRef.current(...args);
         }, delay);
-    }, [callback, delay]);
+    }, [delay]);
 
-    // Cleanup timeout on unmount
+    // Cleanup timeout on unmount or when callback/delay changes
     useEffect(() => {
         return () => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
         };
-    }, []);
+    }, [delay]);
 
     return debouncedCallback;
 };
@@ -99,6 +105,7 @@ const DazzleduckUI = ({ tab, jwt, config, view = "table", width, height }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
     const [searchError, setSearchError] = useState("");
 
     // Validate required props
@@ -138,24 +145,29 @@ const DazzleduckUI = ({ tab, jwt, config, view = "table", width, height }) => {
             hasInitialized.current = true;
             initialize();
         }
-    }, [jwt, config.serverUrl, config.query, config.variables, executeQuery, substituteVariables]);
+    }, [jwt, config.serverUrl, config.query, JSON.stringify(config.variables), executeQuery, substituteVariables]);
 
-    // Memoize filtered search data for performance
-    const filteredSearchData = useMemo(() => {
-        return filterDataBySearch(data, searchQuery);
-    }, [data, searchQuery]);
+    // Debounced search handler - updates the debounced query after 300ms
+    const debouncedSearchHandler = useCallback((query) => {
+        setDebouncedSearchQuery(query);
+    }, []);
+
+    const handleSearch = useDebounce(debouncedSearchHandler, 300);
+
+    // Sync debounced search query when immediate search query changes
+    useEffect(() => {
+        handleSearch(searchQuery);
+    }, [searchQuery, handleSearch]);
 
     // Clear search errors when query changes
     useEffect(() => {
         setSearchError("");
-    }, [searchQuery]);
+    }, [debouncedSearchQuery]);
 
-    // Debounced search handler
-    const debouncedSearchHandler = useCallback((query) => {
-        setSearchQuery(query);
-    }, []);
-
-    const handleSearch = useDebounce(debouncedSearchHandler, 300);
+    // Memoize filtered search data for performance
+    const filteredSearchData = useMemo(() => {
+        return filterDataBySearch(data, debouncedSearchQuery);
+    }, [data, debouncedSearchQuery]);
 
     // Loading state
     if (loading) {
@@ -176,7 +188,7 @@ const DazzleduckUI = ({ tab, jwt, config, view = "table", width, height }) => {
                     data={filteredSearchData}
                     loading={false}
                     searchQuery={searchQuery}
-                    setSearchQuery={handleSearch}
+                    setSearchQuery={setSearchQuery}
                     onSearch={() => {}}
                     error={searchError}
                 />
@@ -197,7 +209,7 @@ const DazzleduckUI = ({ tab, jwt, config, view = "table", width, height }) => {
 
         case "chart":
             return (
-                <div className="border overflow-auto max-h-[450px] bg-white rounded-lg scrollbar-custom p-2">
+                <div className="border overflow-auto max-h-112.5 bg-white rounded-lg scrollbar-custom p-2">
                     <DisplayCharts data={data} view={view} width={width} height={height} />
                 </div>
             );
