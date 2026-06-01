@@ -4,6 +4,7 @@ import { IoMdArrowDropdown } from "react-icons/io";
 import DataTable from "../DataTable";
 import DisplayCharts from "../../DisplayCharts";
 import PerformantTable from "./PerformantTable";
+import { useVisualizationFallback } from "../../utils/useVisualizationFallback";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -328,12 +329,21 @@ export const QueriesView = ({ queries, loading, error, filterQuery, onBack, onEx
  * with a live display-type override selector in the header.
  *
  * Supports: table | line | bar | pie
+ * Automatically falls back to table for unsupported visualizations
  */
-export const QueryResultDisplay = ({ queryName, groupName, data, preferredDisplay = "table", currentDisplay, onDisplayChange }) => {
+export const QueryResultDisplay = ({ queryName, groupName, data, preferredDisplay = "table", currentDisplay, onDisplayChange, showPopup }) => {
     const displayType = (currentDisplay || preferredDisplay).toLowerCase();
-    const isChart = ["line", "bar", "pie"].includes(displayType);
 
-    if (!isChart) {
+    // Supported display types
+    const isChart = ["line", "bar", "pie"].includes(displayType);
+    const { fallbackToTable, handleDisplayChange } = useVisualizationFallback({
+        displayType,
+        data,
+        onDisplayChange,
+        showPopup,
+    });
+
+    if (!isChart || fallbackToTable) {
         return (
             <DataTable
                 title={queryName}
@@ -341,7 +351,7 @@ export const QueryResultDisplay = ({ queryName, groupName, data, preferredDispla
                 data={data || []}
                 emptyText="Query returned no rows."
                 headerActions={onDisplayChange && (
-                    <DisplayTypeSelect value={displayType} onChange={onDisplayChange} />
+                    <DisplayTypeSelect value={displayType} onChange={handleDisplayChange} />
                 )}
             />
         );
@@ -358,7 +368,7 @@ export const QueryResultDisplay = ({ queryName, groupName, data, preferredDispla
                         </span>
                     )}
                 </div>
-                {onDisplayChange && <DisplayTypeSelect value={displayType} onChange={onDisplayChange} />}
+                {onDisplayChange && <DisplayTypeSelect value={displayType} onChange={handleDisplayChange} />}
             </div>
             <div className="p-4">
                 <DisplayCharts data={data || []} view={displayType} width={1000} height={400} />
@@ -370,7 +380,7 @@ export const QueryResultDisplay = ({ queryName, groupName, data, preferredDispla
 // ─── BulkResultsSummary ───────────────────────────────────────────────────────
 
 /** Summary card + per-query results + failed-queries table for bulk execution. */
-export const BulkResultsSummary = ({ bulkResultsData, displayOverrides, onDisplayChange, onClear }) => {
+export const BulkResultsSummary = ({ bulkResultsData, displayOverrides, onDisplayChange, onClear, showPopup }) => {
     const { results, errors, total } = bulkResultsData;
 
     const statCard = (label, count, colorCls) => (
@@ -411,6 +421,7 @@ export const BulkResultsSummary = ({ bulkResultsData, displayOverrides, onDispla
                         preferredDisplay={result.preferredDisplay || "table"}
                         currentDisplay={displayOverrides[result.queryName]}
                         onDisplayChange={(type) => onDisplayChange(result.queryName, type)}
+                        showPopup={showPopup}
                     />
                 </div>
             ))}

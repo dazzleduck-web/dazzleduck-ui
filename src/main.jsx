@@ -4,13 +4,16 @@ import './index.css'
 import App from './App.jsx'
 import { QueryDashboardProvider } from './context/QueryDashboardContext.jsx'
 import ErrorBoundary from './components/utils/ErrorBoundary.jsx'
+import { AIConfigProvider } from './context/AIConfigContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <QueryDashboardProvider>
-        <App />
-      </QueryDashboardProvider>
+      <AIConfigProvider>
+        <QueryDashboardProvider>
+          <App />
+        </QueryDashboardProvider>
+      </AIConfigProvider>
     </ErrorBoundary>
   </StrictMode>
 )

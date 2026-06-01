@@ -4,7 +4,7 @@ import { useQueryDashboard } from "../context/QueryDashboardContext";
 /**
  * Hook for managing named queries: groups → queries → execute
  * All API logic delegated to QueryDashboardContext.
- * Updated to work with new backend API: fetch all queries and group locally.
+ * Updated to work with the server API: fetch all queries and group locally.
  */
 export const useNamedQueryManagement = ({ url }) => {
     const {
@@ -12,7 +12,7 @@ export const useNamedQueryManagement = ({ url }) => {
         executeNamedQuery: apiExecuteQuery,
     } = useQueryDashboard();
 
-    // All named queries fetched from backend
+    // All named queries fetched from the server
     const [allQueries, setAllQueries] = useState([]);
     const [allQueriesLoading, setAllQueriesLoading] = useState(false);
     const [allQueriesError, setAllQueriesError] = useState("");

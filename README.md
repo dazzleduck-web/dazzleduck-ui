@@ -80,6 +80,10 @@ The Arrow JS Frontend is a feature-rich web application that connects to the Daz
 - Status code handling (200, 202, 409)
 - Real-time cancellation status feedback
 
+### AI Assistant Tab
+
+The AI Assistant tab helps generate and run safe, read-only queries with confirmation before execution. It can also list databases and named queries, then render the results in the same table/chart views used elsewhere in the app.
+
 ### Data Visualization
 
 **DisplayCharts Component**
@@ -121,7 +125,7 @@ Supports three visualization modes:
 
 ### Search Functionality
 
-**SearchTable Component**
+**DataTable Search Mode**
 - Field sidebar for column selection
 - Pagination with customizable page size
 - Row expansion for detailed JSON view
@@ -174,9 +178,9 @@ docker run -p 5174:5174 dazzleduck-frontend
 ```
 ---
 
-## Backend API Integration
+## DazzleDuck Server Integration
 
-The frontend integrates with the DazzleDuck SQL HTTP Server via the following endpoints:
+The frontend connects to the DazzleDuck SQL HTTP Server via the following endpoints:
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|

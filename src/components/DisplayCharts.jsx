@@ -14,12 +14,22 @@ import { formatPossibleDate } from "./utils/DateNormalizer";
  *  - height (optional): number → chart height
  */
 export default function DisplayCharts({ data, view, width, height }) {
+  // Supported view types
+  const supportedViews = ["line", "bar", "pie"];
+
   if (!data || data.length === 0)
     return <p className="text-gray-500 text-center p-6">No data to visualize.</p>;
 
   const keys = Object.keys(data[0]);
   if (keys.length === 0)
     return <p className="text-gray-500">No valid data columns.</p>;
+
+  // Check if view is supported
+  if (!supportedViews.includes(view)) {
+    return <p className="text-gray-500 text-center p-6">
+      Unsupported visualization type: "{view}". Supported types: line, bar, pie
+    </p>;
+  }
 
   // Use only first 3 columns for visualization (ignore the rest)
   const usedKeys = keys.slice(0, 3);
@@ -148,8 +158,15 @@ export default function DisplayCharts({ data, view, width, height }) {
   // -------------------------------------------------
   if (view === "line") return <LineChartD3 data={chartData} design={design} />;
   if (view === "bar") return <BarChartD3 data={chartData} design={design} />;
-  if (view === "pie")
-    return <p className="text-gray-500">Pie chart requires at least 2 columns.</p>;
+  if (view === "pie") {
+    if (usedKeys.length < 2) {
+      return <p className="text-gray-500 text-center p-6">Pie chart requires at least 2 columns.</p>;
+    }
+    return <PieChartD3 data={pieData} design={{
+      width: width || 600,
+      height: height || 400,
+    }} />;
+  }
 
-  return <p className="text-gray-500">Unsupported visualization</p>;
+  return <p className="text-gray-500 text-center p-6">Unsupported visualization type.</p>;
 }
