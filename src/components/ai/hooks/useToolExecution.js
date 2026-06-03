@@ -25,8 +25,8 @@ export function useToolExecution() {
     return await callTool("listDatabases");
   }, [callTool]);
 
-  const listTables = useCallback(async () => {
-    return await callTool("listTables");
+  const listTables = useCallback(async (databaseName = "") => {
+    return await callTool("listTables", { databaseName });
   }, [callTool]);
 
   const listNamedQueries = useCallback(async () => {
@@ -45,8 +45,12 @@ export function useToolExecution() {
     return await callTool("executeNamedQuery", { queryName, parameters });
   }, [callTool]);
 
-  const describeTable = useCallback(async (tableName) => {
-    return await callTool("describeTable", { tableName });
+  const executeAllNamedQueries = useCallback(async (queryGroup = "") => {
+    return await callTool("executeAllNamedQueries", { queryGroup });
+  }, [callTool]);
+
+  const describeTable = useCallback(async (tableName, databaseName = "") => {
+    return await callTool("describeTable", { tableName, databaseName });
   }, [callTool]);
 
   return {
@@ -58,6 +62,7 @@ export function useToolExecution() {
     getNamedQuery,
     executeQuery,
     executeNamedQuery,
+    executeAllNamedQueries,
     describeTable,
   };
 }

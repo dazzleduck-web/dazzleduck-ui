@@ -30,6 +30,29 @@ const MALFORMED_RESPONSE_PATTERNS = [
   "cannot read properties",
 ];
 
+// Patterns that indicate sensitive data (API keys, tokens, etc.)
+const SENSITIVE_DATA_PATTERNS = [
+  /[?&]key=[^&\s"')]+/gi,           // ?key=... or &key=...
+  /[?&]api[_-]?key=[^&\s"')]+/gi,   // ?api_key=... or &apikey=...
+  /[?&]token=[^&\s"')]+/gi,         // ?token=...
+  /bearer\s+[a-zA-Z0-9_\-\.]+/gi,  // Bearer token
+  /authorization[:\s]+[a-zA-Z0-9_\-\.]+/gi, // Authorization header
+];
+
+/**
+ * Strip sensitive data patterns from error messages to prevent API key exposure
+ */
+const sanitizeErrorMessage = (message) => {
+  if (!message || typeof message !== "string") return message;
+
+  let sanitized = message;
+  SENSITIVE_DATA_PATTERNS.forEach((pattern) => {
+    sanitized = sanitized.replace(pattern, "[REDACTED]");
+  });
+
+  return sanitized;
+};
+
 const normalizeErrorText = (error) => {
   const parts = [
     error?.message,
@@ -82,7 +105,9 @@ export const getGeminiErrorMessage = (error, fallbackMessage = "Failed to proces
     return "Request timed out. Please try again.";
   }
 
-  return error?.message || fallbackMessage;
+  // Sanitize raw error message to remove any sensitive data (API keys, tokens, etc.)
+  const sanitized = sanitizeErrorMessage(error?.message);
+  return sanitized || fallbackMessage;
 };
 
 export const isRetryableGeminiError = (error) => {

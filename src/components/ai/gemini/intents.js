@@ -103,17 +103,20 @@ export function extractResponseText(response) {
 /**
  * Run direct intent handling (bypass Gemini for VERY OBVIOUS requests only)
  * Let Gemini handle anything that requires understanding
+ * @param {string} message - User message to match
+ * @param {Function} callTool - Unified tool execution function (callTool(name, args))
  */
-export async function runDirectIntent(message, context) {
+export async function runDirectIntent(message, callTool) {
   const lowerMessage = message.toLowerCase().trim();
+  const tableMatch = lowerMessage.match(/^(show|list).*\btables?\b(?:\s+(?:from|in)\s+(.+?))?\??$/i);
+  const bulkNamedQueryMatch = lowerMessage.match(/^(run|execute)(?:\s+all)?\s+named quer(?:y|ies)(?:\s+(?:from|in)\s+(.+?))?\??$/i);
 
   // ONLY handle extremely simple, obvious requests
   // Everything else goes to Gemini for actual understanding
 
   // Very basic database listing (only if explicitly requested)
   if (/^(show|list|what are|which).*databases?\?*$/.test(lowerMessage)) {
-    const { listDatabases } = context;
-    const toolResult = await listDatabases();
+    const toolResult = await callTool("listDatabases");
     return {
       reply: `Found ${toolResult.count} database${toolResult.count === 1 ? "" : "s"}.`,
       toolCalls: [buildToolCallRecord("listDatabases", {}, toolResult)],
@@ -123,12 +126,18 @@ export async function runDirectIntent(message, context) {
   }
 
   // Very basic table listing (only if explicitly requested)
-  if (/^(show|list).*tables?\?*$/.test(lowerMessage)) {
-    const { listTables } = context;
-    const toolResult = await listTables();
+  if (tableMatch) {
+    const databaseName = tableMatch[2]?.trim()?.replace(/^["'`]|["'`]$/g, "") || "";
+    const toolResult = await callTool("listTables", { databaseName });
+
+    const reply = toolResult.message
+      || (databaseName
+        ? `Found ${toolResult.count} table${toolResult.count === 1 ? "" : "s"} in ${databaseName}.`
+        : `Found ${toolResult.count} table${toolResult.count === 1 ? "" : "s"}.`);
+
     return {
-      reply: `Found ${toolResult.count} table${toolResult.count === 1 ? "" : "s"}.`,
-      toolCalls: [buildToolCallRecord("listTables", {}, toolResult)],
+      reply,
+      toolCalls: [buildToolCallRecord("listTables", { databaseName }, toolResult)],
       pendingQuery: null,
       results: toolResult.rows || [],
     };
@@ -136,13 +145,33 @@ export async function runDirectIntent(message, context) {
 
   // Very basic named query listing (only if explicitly requested)
   if (/^(show|list|what).*named queries?\?*$/.test(lowerMessage)) {
-    const { listNamedQueries } = context;
-    const toolResult = await listNamedQueries();
+    const toolResult = await callTool("listNamedQueries");
     return {
       reply: `Found ${toolResult.count} named quer${toolResult.count === 1 ? "y" : "ies"}.`,
       toolCalls: [buildToolCallRecord("listNamedQueries", {}, toolResult)],
       pendingQuery: null,
       results: toolResult.namedQueries || [],
+    };
+  }
+
+  // Very basic bulk named query execution (only if explicitly requested)
+  if (bulkNamedQueryMatch) {
+    const queryGroup = bulkNamedQueryMatch[2]?.trim()?.replace(/^["'`]|["'`]$/g, "") || "";
+    const toolResult = await callTool("executeAllNamedQueries", { queryGroup });
+
+    return {
+      reply: toolResult.message
+        || (queryGroup
+          ? `Prepared all named queries in group ${queryGroup} for review.`
+          : "Prepared all named queries for review."),
+      toolCalls: [buildToolCallRecord("executeAllNamedQueries", { queryGroup }, toolResult)],
+      pendingQuery: toolResult.requiresConfirmation
+        ? buildPendingAction("executeAllNamedQueries", {
+            queryGroup: toolResult.queryGroup || queryGroup,
+            explanation: toolResult.explanation || "Bulk named query execution requires confirmation.",
+          })
+        : null,
+      results: Array.isArray(toolResult.rows) ? toolResult.rows : [],
     };
   }
 

@@ -4,8 +4,12 @@
  */
 
 import { validateReadOnlyQuery, normalizeReadOnlyQuery } from "./queryValidator";
+import { QUERY_EXECUTION_TIMEOUT_MS } from "../config/aiConstants";
 
 const isDev = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV;
+
+export const MAX_BULK_QUERIES = 20;
+export const MAX_ROWS_PER_QUERY = 100;
 
 /**
  * Tool definitions that Gemini can call
@@ -21,10 +25,15 @@ export const toolDefinitions = [
   },
   {
     name: "listTables",
-    description: "List all tables available in the connected database.",
+    description: "List all tables available in the connected database or in a specific database.",
     parameters: {
       type: "object",
-      properties: {},
+      properties: {
+        databaseName: {
+          type: "string",
+          description: "Optional database name to list tables from.",
+        },
+      },
     },
   },
   {
@@ -68,6 +77,19 @@ export const toolDefinitions = [
     },
   },
   {
+    name: "executeAllNamedQueries",
+    description: "Execute all named queries, optionally limited to a specific query group. Execution requires confirmation.",
+    parameters: {
+      type: "object",
+      properties: {
+        queryGroup: {
+          type: "string",
+          description: "Optional query group to restrict execution to.",
+        },
+      },
+    },
+  },
+  {
     name: "describeTable",
     description: "Describe the schema of a single table.",
     parameters: {
@@ -76,6 +98,10 @@ export const toolDefinitions = [
         tableName: {
           type: "string",
           description: "The table name to describe",
+        },
+        databaseName: {
+          type: "string",
+          description: "Optional database name to qualify the table.",
         },
       },
       required: ["tableName"],
@@ -120,6 +146,18 @@ function quoteIdentifier(identifier) {
   return `"${String(identifier).replace(/"/g, '""')}"`;
 }
 
+function normalizeDatabaseName(databaseName) {
+  return String(databaseName || "")
+    .trim()
+    .replace(/^["'`]|["'`]$/g, "");
+}
+
+function normalizeQueryGroup(queryGroup) {
+  return String(queryGroup || "")
+    .trim()
+    .replace(/^["'`]|["'`]$/g, "");
+}
+
 /**
  * Format qualified table name (schema.table)
  */
@@ -156,7 +194,7 @@ function formatTextTable(rows) {
 /**
  * Summarize table list results
  */
-function summarizeTables(rows) {
+function summarizeTables(rows, databaseName = "") {
   if (!Array.isArray(rows)) return [];
 
   return rows.map((row) => {
@@ -166,10 +204,174 @@ function summarizeTables(rows) {
     const tableType = row.table_type || row.type || "BASE TABLE";
 
     return {
+      database_name: row.database_name || row.table_schema || row.schema_name || databaseName || "",
       name: tableName,
+      table_name: tableName,
       type: tableType,
     };
   });
+}
+
+async function fetchDatabaseNames(executeQuery, serverUrl, jwtToken) {
+  if (!executeQuery) {
+    throw new Error("executeQuery function not available in context");
+  }
+
+  const query = "SHOW DATABASES";
+  const { data: rows } = await executeQuery(serverUrl, query, 0, jwtToken);
+
+  return {
+    rows: Array.isArray(rows) ? rows : [],
+    queryUsed: query,
+  };
+}
+
+async function fetchTablesForDatabase(executeQuery, serverUrl, jwtToken, databaseName) {
+  const normalizedDatabaseName = normalizeDatabaseName(databaseName);
+  if (!normalizedDatabaseName) {
+    throw new Error("databaseName is required");
+  }
+
+  const queries = [
+    `SHOW TABLES FROM ${quoteIdentifier(normalizedDatabaseName)}`,
+  ];
+
+  let lastError = null;
+
+  for (const query of queries) {
+    try {
+      const { data: rows } = await executeQuery(serverUrl, query, 0, jwtToken);
+      return {
+        rows: Array.isArray(rows) ? rows : [],
+        queryUsed: query,
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error(`Failed to list tables for database '${normalizedDatabaseName}'`);
+}
+
+async function executeAllNamedQueries(fetchNamedQueries, executeNamedQuery, serverUrl, queryGroup = "") {
+  if (!fetchNamedQueries) {
+    throw new Error("fetchNamedQueries function not available in context");
+  }
+  if (!executeNamedQuery) {
+    throw new Error("executeNamedQuery function not available in context");
+  }
+
+  const allNamedQueries = await fetchNamedQueries(serverUrl, 0, 1000);
+  const normalizedGroup = normalizeQueryGroup(queryGroup);
+  const selectedQueries = normalizedGroup
+    ? allNamedQueries.filter((query) => (query.query_group || query.group || "default") === normalizedGroup)
+    : allNamedQueries;
+
+  if (!selectedQueries.length) {
+    throw new Error(
+      normalizedGroup
+        ? `No named queries were found in group '${normalizedGroup}'`
+        : "No named queries were found"
+    );
+  }
+
+  if (selectedQueries.length > MAX_BULK_QUERIES) {
+    throw new Error(`Bulk execution exceeds limit of ${MAX_BULK_QUERIES} queries`);
+  }
+
+  const summaryRows = [];
+  const detailedResults = [];
+  const errors = [];
+
+  for (const query of selectedQueries) {
+    try {
+      // Wrap execution in Promise.race with timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Query execution timed out after ${QUERY_EXECUTION_TIMEOUT_MS / 1000}s`)), QUERY_EXECUTION_TIMEOUT_MS)
+      );
+
+      const executionResult = await Promise.race([
+        executeNamedQuery(serverUrl, query.name, {}),
+        timeoutPromise,
+      ]);
+
+      const rows = Array.isArray(executionResult)
+        ? executionResult
+        : Array.isArray(executionResult?.data)
+          ? executionResult.data
+          : Array.isArray(executionResult?.rows)
+            ? executionResult.rows
+            : [];
+      const rowsForDisplay = rows.slice(0, MAX_ROWS_PER_QUERY);
+
+      const detailedRow = {
+        queryName: query.name,
+        query_group: query.query_group || query.group || "default",
+        preferredDisplay: query.preferred_display || "table",
+        success: true,
+        data: rowsForDisplay,
+        totalRowCount: rows.length,
+        truncated: rows.length > MAX_ROWS_PER_QUERY,
+        rowCount: rows.length,
+      };
+
+      detailedResults.push(detailedRow);
+      summaryRows.push({
+        queryName: detailedRow.queryName,
+        query_group: detailedRow.query_group,
+        preferredDisplay: detailedRow.preferredDisplay,
+        success: detailedRow.success,
+        rowCount: detailedRow.rowCount,
+      });
+    } catch (error) {
+      const isTimeout = error?.message?.includes("timed out");
+      const errorMessage = error?.message || `Failed to execute ${query.name}`;
+      if (isDev && isTimeout) {
+        console.warn(`[AI] Query timeout for ${query.name}: ${errorMessage}`);
+      }
+
+      const detailedRow = {
+        queryName: query.name,
+        query_group: query.query_group || query.group || "default",
+        preferredDisplay: query.preferred_display || "table",
+        success: false,
+        data: [],
+        totalRowCount: 0,
+        truncated: false,
+        rowCount: 0,
+        error: errorMessage,
+        timedOut: isTimeout,
+      };
+
+      detailedResults.push(detailedRow);
+      summaryRows.push({
+        queryName: detailedRow.queryName,
+        query_group: detailedRow.query_group,
+        preferredDisplay: detailedRow.preferredDisplay,
+        success: detailedRow.success,
+        rowCount: detailedRow.rowCount,
+        error: detailedRow.error,
+      });
+      errors.push({
+        queryName: query.name,
+        error: errorMessage,
+        timedOut: isTimeout,
+      });
+    }
+  }
+
+  return {
+    queryGroup: normalizedGroup || null,
+    rows: summaryRows,
+    results: detailedResults,
+    errors,
+    total: selectedQueries.length,
+    successCount: detailedResults.filter((item) => item.success).length,
+    failureCount: errors.length,
+    rowCount: summaryRows.length,
+    textTable: formatTextTable(summaryRows),
+    bulk: true,
+  };
 }
 
 /**
@@ -200,38 +402,19 @@ export async function runTool(name, args = {}, context = {}) {
 
   switch (name) {
     case "listDatabases": {
-      const candidates = [
-        "SELECT datname AS database_name FROM pg_database WHERE datistemplate = false ORDER BY datname",
-        "SHOW DATABASES",
-      ];
+      const { rows, queryUsed } = await fetchDatabaseNames(executeQuery, serverUrl, jwtToken);
 
-      for (const query of candidates) {
-        try {
-          if (!executeQuery) {
-            throw new Error("executeQuery function not available in context");
-          }
-
-          const { data: rows } = await executeQuery(serverUrl, query, 0, jwtToken);
-
-          return {
-            databases: rows.map((row) => ({
-              database_name:
-                row.database_name ||
-                row.datname ||
-                row.name ||
-                (row && typeof row === "object" ? row[Object.keys(row)[0]] : String(row)),
-            })),
-            count: rows.length,
-            queryUsed: query,
-          };
-        } catch (error) {
-          if (query === candidates[candidates.length - 1]) {
-            throw error;
-          }
-        }
-      }
-
-      return { databases: [], count: 0 };
+      return {
+        databases: rows.map((row) => ({
+          database_name:
+            row.database_name ||
+            row.datname ||
+            row.name ||
+            (row && typeof row === "object" ? row[Object.keys(row)[0]] : String(row)),
+        })),
+        count: rows.length,
+        queryUsed,
+      };
     }
 
     case "listTables": {
@@ -239,11 +422,67 @@ export async function runTool(name, args = {}, context = {}) {
         throw new Error("executeQuery function not available in context");
       }
 
+      const databaseName = normalizeDatabaseName(args.databaseName);
+
+      if (databaseName) {
+        const { rows, queryUsed } = await fetchTablesForDatabase(executeQuery, serverUrl, jwtToken, databaseName);
+        const tables = summarizeTables(rows, databaseName);
+
+        if (tables.length === 0) {
+          const databases = await fetchDatabaseNames(executeQuery, serverUrl, jwtToken);
+          const databaseList = databases.rows
+            .map((row) => row.database_name || row.name || String(row))
+            .filter(Boolean);
+
+          return {
+            rows: [],
+            tables: [],
+            databases: databases.rows,
+            databaseName,
+            queryUsed,
+            count: 0,
+            message: databaseList.length > 0
+              ? `No tables were found in database '${databaseName}'. Available databases: ${databaseList.join(", ")}.`
+              : `No tables were found in database '${databaseName}'.`,
+          };
+        }
+
+        return {
+          rows: tables,
+          tables,
+          databaseName,
+          queryUsed,
+          count: tables.length,
+        };
+      }
+
       const { data: rows } = await executeQuery(serverUrl, "SHOW TABLES", 0, jwtToken);
+      const tables = summarizeTables(rows);
+
+      if (tables.length > 0) {
+        return {
+          rows: tables,
+          tables,
+          count: tables.length,
+          queryUsed: "SHOW TABLES",
+        };
+      }
+
+      const databases = await fetchDatabaseNames(executeQuery, serverUrl, jwtToken);
+      const databaseList = databases.rows
+        .map((row) => row.database_name || row.name || String(row))
+        .filter(Boolean);
 
       return {
-        rows: summarizeTables(rows),
-        count: rows.length,
+        rows: [],
+        tables: [],
+        databases: databases.rows,
+        count: 0,
+        queryUsed: "SHOW TABLES",
+        message: databaseList.length > 0
+          ? `No tables were found in the current database. Available databases: ${databaseList.join(", ")}. Which database should I inspect?`
+          : "No tables were found in the current database.",
+        needsDatabaseSelection: true,
       };
     }
 
@@ -290,11 +529,22 @@ export async function runTool(name, args = {}, context = {}) {
         throw new Error("tableName is required");
       }
 
-      const query = `DESCRIBE TABLE ${formatQualifiedTableName(tableName)}`;
+      const databaseName = normalizeDatabaseName(args.databaseName);
+
+      // Always split into parts and quote each segment individually to prevent injection
+      const parts = tableName.includes(".")
+        ? tableName.split(".").map((p) => p.trim()).filter(Boolean)
+        : databaseName
+          ? [databaseName, tableName]
+          : [tableName];
+
+      // Quote each part and join with "."
+      const quotedQualifiedName = parts.map(quoteIdentifier).join(".");
+      const query = `DESCRIBE TABLE ${quotedQualifiedName}`;
       const { data: rows } = await executeQuery(serverUrl, query, 0, jwtToken);
 
       return {
-        tableName,
+        tableName: parts.join("."),
         columns: summarizeColumns(rows),
         count: rows.length,
       };
@@ -307,8 +557,6 @@ export async function runTool(name, args = {}, context = {}) {
       if (!args.confirmed) {
         return buildPreview(normalizedQuery, explanation);
       }
-
-      validateReadOnlyQuery(normalizedQuery);
 
       if (!executeQuery) {
         throw new Error("executeQuery function not available in context");
@@ -362,7 +610,16 @@ export async function runTool(name, args = {}, context = {}) {
         }
       }
 
-      const executionResult = await executeNamedQuery(serverUrl, queryName, parameters);
+      // Wrap execution in Promise.race with timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Query execution timed out after ${QUERY_EXECUTION_TIMEOUT_MS / 1000}s`)), QUERY_EXECUTION_TIMEOUT_MS)
+      );
+
+      const executionResult = await Promise.race([
+        executeNamedQuery(serverUrl, queryName, parameters),
+        timeoutPromise,
+      ]);
+
       const rows = Array.isArray(executionResult)
         ? executionResult
         : Array.isArray(executionResult?.data)
@@ -377,6 +634,47 @@ export async function runTool(name, args = {}, context = {}) {
         rowCount: rows.length,
         textTable: formatTextTable(rows),
         namedQuery: namedQueryMetadata, // Include metadata for preferred_display
+      };
+    }
+
+    case "executeAllNamedQueries": {
+      const queryGroup = normalizeQueryGroup(args.queryGroup);
+
+      if (!args.confirmed) {
+        return {
+          requiresConfirmation: true,
+          queryGroup: queryGroup || null,
+          query: queryGroup
+            ? `-- Execute all named queries in group: ${queryGroup}`
+            : "-- Execute all named queries",
+          explanation: queryGroup
+            ? `This will execute every named query in the '${queryGroup}' group.`
+            : "This will execute every named query that is available on the server.",
+          message: queryGroup
+            ? `I prepared all named queries in group '${queryGroup}' for review.`
+            : "I prepared all named queries for review.",
+        };
+      }
+
+      const executionResult = await executeAllNamedQueries(
+        fetchNamedQueries,
+        executeNamedQuery,
+        serverUrl,
+        queryGroup
+      );
+
+      return {
+        confirmed: true,
+        queryGroup: executionResult.queryGroup,
+        rows: executionResult.rows,
+        results: executionResult.results,
+        errors: executionResult.errors,
+        total: executionResult.total,
+        successCount: executionResult.successCount,
+        failureCount: executionResult.failureCount,
+        rowCount: executionResult.rowCount,
+        textTable: executionResult.textTable,
+        bulk: true,
       };
     }
 

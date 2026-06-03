@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export const SUPPORTED_VISUALIZATION_TYPES = ["table", "line", "bar", "pie"];
 
@@ -64,19 +64,13 @@ export function useVisualizationFallback({
   displayType,
   data,
   onDisplayChange,
-  showPopup,
   fallbackDelayMs = 2000,
-  emptyDataReason = "No data available",
-  invalidDataReason = "Invalid data structure",
-  incompatibleDataReason = "Data structure not compatible with this visualization",
 }) {
   const [fallbackToTable, setFallbackToTable] = useState(false);
-  const popupSentRef = useRef("");
 
   const handleDisplayChange = useCallback(
     (nextDisplayType) => {
       setFallbackToTable(false);
-      popupSentRef.current = "";
       onDisplayChange?.(nextDisplayType);
     },
     [onDisplayChange]
@@ -87,17 +81,6 @@ export function useVisualizationFallback({
 
     if (normalizedDisplayType !== "table" && shouldFallbackVisualization(normalizedDisplayType, data)) {
       setFallbackToTable(true);
-
-      const popupKey = `${normalizedDisplayType}:${data?.length || 0}`;
-      if (typeof showPopup === "function" && popupSentRef.current !== popupKey) {
-        popupSentRef.current = popupKey;
-        const reason = getVisualizationFallbackReason(normalizedDisplayType, data, {
-          emptyDataReason,
-          invalidDataReason,
-          incompatibleDataReason,
-        });
-        showPopup(`Visualization not supported: ${reason}. Showing table view instead.`, "warning");
-      }
 
       if (onDisplayChange) {
         const timeout = setTimeout(() => {
@@ -112,17 +95,12 @@ export function useVisualizationFallback({
     }
 
     setFallbackToTable(false);
-    popupSentRef.current = "";
     return undefined;
   }, [
     data,
     displayType,
-    emptyDataReason,
     fallbackDelayMs,
-    incompatibleDataReason,
-    invalidDataReason,
     onDisplayChange,
-    showPopup,
   ]);
 
   return {

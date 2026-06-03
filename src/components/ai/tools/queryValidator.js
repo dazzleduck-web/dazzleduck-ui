@@ -14,6 +14,9 @@ const BLOCKED_SQL_KEYWORDS = [
   "TRUNCATE",
   "GRANT",
   "REVOKE",
+  "COPY",
+  "LOAD DATA",
+  "CALL",
 ];
 
 const ALLOWED_PREFIXES = ["SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN", "WITH"];

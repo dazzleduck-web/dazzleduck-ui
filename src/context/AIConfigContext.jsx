@@ -8,24 +8,34 @@ const STORAGE_KEY = "dazzleduck_ai_config";
 const readStoredConfig = () => {
   // Try localStorage first (remember me), then fall back to sessionStorage.
   let storedConfig = localStorage.getItem(STORAGE_KEY);
-  let rememberMe = true;
+  let sourceStorage = localStorage;
 
   if (!storedConfig) {
     storedConfig = sessionStorage.getItem(STORAGE_KEY);
-    rememberMe = false;
+    sourceStorage = sessionStorage;
   }
 
   if (!storedConfig) {
     return null;
   }
 
-  const parsed = JSON.parse(storedConfig);
+  let parsed;
+  try {
+    parsed = JSON.parse(storedConfig);
+  } catch (error) {
+    // Corrupted data: remove it and prevent repeated errors on reload
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
+    console.warn("Corrupted AI config detected and removed:", error);
+    return null;
+  }
+
   if (!parsed.geminiModel) {
     return null;
   }
 
   return {
-    geminiApiKey: rememberMe ? parsed.geminiApiKey : null,
+    geminiApiKey: sourceStorage === localStorage ? parsed.geminiApiKey : null,
     geminiModel: parsed.geminiModel,
     rememberMe: parsed.rememberMe || false,
     isValid: false,

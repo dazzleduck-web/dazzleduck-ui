@@ -142,6 +142,15 @@ vi.mock("../src/components/DisplayCharts.jsx", () => ({
   ),
 }));
 
+vi.mock("../src/components/dashboardcomponents/namedquery/QueryViews", () => ({
+  QueryResultDisplay: ({ queryName, data = [] }) => React.createElement(
+    "div",
+    { "data-testid": "query-result-display" },
+    React.createElement("div", null, queryName),
+    React.createElement("div", null, `rows:${data.length}`)
+  ),
+}));
+
 vi.mock("../src/components/utils/useVisualizationFallback.js", () => ({
   useVisualizationFallback: ({ onDisplayChange }) => ({
     fallbackToTable: false,
@@ -149,11 +158,11 @@ vi.mock("../src/components/utils/useVisualizationFallback.js", () => ({
   }),
 }));
 
-vi.mock("../src/components/ai/util/ChatMessage.jsx", () => ({
+vi.mock("../src/components/ai/util/MessageRenderer.jsx", () => ({
   default: ({ message }) => React.createElement(
     "div",
-    { "data-testid": "chat-message" },
-    `${message.role}:${message.content}`
+    { "data-testid": `chat-message-${message.kind || "text"}` },
+    `${message.role}:${message.content || ""}`
   ),
 }));
 
@@ -230,8 +239,8 @@ describe("AI assistant workflows", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Named Query Preview")).toBeInTheDocument();
-      expect(screen.getByText(/third_query/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^Execute$/i })).toBeInTheDocument();
+      expect(screen.getByText(/I prepared a named query for review/i)).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^Execute$/i }));
@@ -247,6 +256,34 @@ describe("AI assistant workflows", () => {
         {}
       );
       expect(screen.getByTestId("display-charts")).toHaveTextContent("view:line rows:2");
+    });
+  });
+
+  it("runs all named queries from a direct request and renders the bulk summary", async () => {
+    renderChat();
+
+    await sendChatMessage("run all named queries");
+
+    await waitFor(() => {
+      expect(screen.getByText("Named Queries Preview")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Execute$/i })).toBeInTheDocument();
+      expect(screen.getByText(/I prepared all named queries/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Execute$/i }));
+
+    await waitFor(() => {
+      expect(AI_TEST_STATE.mockQueryDashboard.fetchNamedQueries).toHaveBeenCalledWith(
+        "http://localhost:8081",
+        0,
+        1000
+      );
+      expect(AI_TEST_STATE.mockQueryDashboard.executeNamedQuery).toHaveBeenCalledTimes(3);
+      expect(screen.getAllByTestId("query-result-display")).toHaveLength(3);
+      expect(screen.getByText(/first_query/i)).toBeInTheDocument();
+      expect(screen.getByText(/second_query/i)).toBeInTheDocument();
+      expect(screen.getByText(/third_query/i)).toBeInTheDocument();
+      expect(screen.getAllByText("rows:2")).toHaveLength(3);
     });
   });
 
@@ -315,5 +352,108 @@ describe("AI assistant workflows", () => {
       expect(screen.getByText(/second_query/i)).toBeInTheDocument();
       expect(screen.getByText(/third_query/i)).toBeInTheDocument();
     });
+  });
+
+  it("restores the latest result data after the assistant is unmounted and remounted", async () => {
+    const firstRender = renderChat();
+
+    await sendChatMessage("show databases");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("result-table")).toBeInTheDocument();
+      expect(screen.getByText("rows:2")).toBeInTheDocument();
+    });
+
+    expect(sessionStorage.getItem("dazzleduck_ai_chat")).toContain("\"resultRows\"");
+
+    firstRender.unmount();
+
+    renderChat();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("result-table")).toBeInTheDocument();
+      expect(screen.getByText("rows:2")).toBeInTheDocument();
+      expect(screen.getByText(/main_db/i)).toBeInTheDocument();
+      expect(screen.getByText(/analytics_db/i)).toBeInTheDocument();
+    });
+  });
+
+  it("keeps the current result data when the next assistant message has no new results", async () => {
+    renderChat();
+
+    await sendChatMessage("show databases");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("result-table")).toBeInTheDocument();
+      expect(screen.getByText("rows:2")).toBeInTheDocument();
+    });
+
+    await sendChatMessage("thanks");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("result-table")).toBeInTheDocument();
+      expect(screen.getByText("rows:2")).toBeInTheDocument();
+      expect(screen.getByText(/main_db/i)).toBeInTheDocument();
+      expect(screen.getByText(/analytics_db/i)).toBeInTheDocument();
+    });
+  });
+
+  it("lists tables from a specific database when the user names one", async () => {
+    AI_TEST_STATE.mockQueryDashboard.executeQuery.mockImplementationOnce(async (_serverUrl, query) => {
+      if (/SHOW TABLES FROM/i.test(query)) {
+        return {
+          data: [
+            { table_name: "orders" },
+            { table_name: "customers" },
+          ],
+        };
+      }
+
+      return {
+        data: [],
+      };
+    });
+
+    renderChat();
+
+    await sendChatMessage("show tables from named_query");
+
+    await waitFor(() => {
+      expect(AI_TEST_STATE.mockQueryDashboard.executeQuery).toHaveBeenCalledWith(
+        "http://localhost:8081",
+        'SHOW TABLES FROM "named_query"',
+        0,
+        "Bearer test-token"
+      );
+      expect(screen.getByTestId("result-table")).toBeInTheDocument();
+      expect(screen.getByText("rows:2")).toBeInTheDocument();
+      expect(screen.getByText(/orders/i)).toBeInTheDocument();
+      expect(screen.getByText(/customers/i)).toBeInTheDocument();
+    });
+  });
+
+  it("prompts for a database when the current database has no tables", async () => {
+    AI_TEST_STATE.mockQueryDashboard.executeQuery.mockImplementationOnce(async (_serverUrl, query) => {
+      if (/^SHOW TABLES$/i.test(query)) {
+        return { data: [] };
+      }
+
+      return {
+        data: [],
+      };
+    });
+
+    renderChat();
+
+    await sendChatMessage("show tables");
+
+    await waitFor(() => {
+      expect(screen.getByText(/No tables were found in the current database/i)).toBeInTheDocument();
+      expect(screen.getByText(/Available databases:/i)).toBeInTheDocument();
+      expect(screen.getByText(/main_db/i)).toBeInTheDocument();
+      expect(screen.getByText(/analytics_db/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("result-table")).not.toBeInTheDocument();
   });
 });

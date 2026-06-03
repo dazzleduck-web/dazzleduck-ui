@@ -1,10 +1,12 @@
 /**
  * useGeminiChat Hook
  * Main chat hook that manages Gemini interactions, tool calls, and conversation state
- * Enhanced with localStorage persistence and smart history compaction
+ * Enhanced with sessionStorage persistence and smart history compaction
  */
 
-import { useState, useCallback } from "react";
+const isDev = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV;
+
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { GoogleGenerativeAI, FunctionCallingMode } from "@google/generative-ai";
 import { useAIConfig } from "../../../context/useAIConfig";
 import { useQueryDashboard } from "../../../context/QueryDashboardContext";
@@ -23,15 +25,24 @@ import { toolDefinitions } from "../tools/toolRegistry";
 import { useChatPersistence } from "./useChatPersistence";
 import { useConversationCompaction } from "./useConversationCompaction";
 import { useToolExecution } from "./useToolExecution";
-
-const COMPACT_THRESHOLD = 80; // Start compacting at this threshold
+import {
+  createTextMessage,
+  createErrorMessage,
+  createConfirmationMessage,
+} from "../util/chatMessageUtils";
+import {
+  extractResultRows,
+  getResultMetadata,
+  createExecutionResultMessage,
+  buildBulkNamedQueryExecutionResult,
+} from "./resultMessageHelpers";
+import { COMPACTION_TRIGGER_THRESHOLD, COMPACTION_MAX_MESSAGES, COMPACTION_KEEP_COUNT, MAX_TOOL_TURNS } from "../config/aiConstants";
 
 const initialMessages = [
-  {
-    role: "assistant",
-    content: "Ask me about tables, schemas, or data. I can draft a read-only query and let you review it before execution.",
-    toolCalls: [],
-  },
+  createTextMessage(
+    "assistant",
+    "Ask me about tables, schemas, or data. I can draft a read-only query and let you review it before execution."
+  ),
 ];
 
 // Estimate token count (rough estimate: ~4 chars per token)
@@ -53,31 +64,6 @@ const estimateConversationTokens = (messages) => {
   return totalTokens;
 };
 
-const extractResultRows = (toolName, toolResult, fallbackRows = []) => {
-  if (Array.isArray(toolResult?.rows)) {
-    return toolResult.rows;
-  }
-
-  if (Array.isArray(toolResult?.columns)) {
-    return toolResult.columns;
-  }
-
-  if (toolName === "listDatabases" && Array.isArray(toolResult?.databases)) {
-    return toolResult.databases;
-  }
-
-  if (toolName === "listNamedQueries" && Array.isArray(toolResult?.namedQueries)) {
-    return toolResult.namedQueries;
-  }
-
-  return Array.isArray(fallbackRows) ? fallbackRows : [];
-};
-
-const isListTool = (toolName) =>
-  toolName === "listDatabases" ||
-  toolName === "listTables" ||
-  toolName === "listNamedQueries";
-
 export const useGeminiChat = ({ showPopup } = {}) => {
   const { config } = useAIConfig();
   const queryDashboard = useQueryDashboard();
@@ -89,27 +75,33 @@ export const useGeminiChat = ({ showPopup } = {}) => {
   const [resultRows, setResultRows] = useState([]);
   const [resultMetadata, setResultMetadata] = useState(null);
   const [error, setError] = useState(null);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const { clearChatPersistence } = useChatPersistence({
     messages,
+    resultRows,
     resultMetadata,
     setMessages,
+    setResultRows,
     setResultMetadata,
   });
   useConversationCompaction({
     messages,
     setMessages,
-    compactThreshold: COMPACT_THRESHOLD,
+    compactThreshold: COMPACTION_TRIGGER_THRESHOLD,
+    maxMessages: COMPACTION_MAX_MESSAGES,
+    keepCount: COMPACTION_KEEP_COUNT,
   });
-  const {
-    callTool,
-    listDatabases,
-    listTables,
-    listNamedQueries,
-    getNamedQuery,
-    executeQuery,
-    executeNamedQuery,
-    describeTable,
-  } = useToolExecution();
+  const { callTool } = useToolExecution();
+
+  // Memoize GoogleGenerativeAI client to avoid recreating on every message
+  const genAI = useMemo(
+    () => new GoogleGenerativeAI(config.geminiApiKey),
+    [config.geminiApiKey]
+  );
 
   // Main chat function
   const sendMessage = useCallback(async (userMessage) => {
@@ -133,48 +125,37 @@ export const useGeminiChat = ({ showPopup } = {}) => {
     setError(null);
 
     // Add user message
-    const userMessageObj = { role: "user", content: normalizedMessage, toolCalls: [] };
+    const userMessageObj = createTextMessage("user", normalizedMessage);
     setMessages((prev) => [...prev, userMessageObj]);
 
     try {
-      // Create intent context
-      const intentContext = {
-        listDatabases,
-        listTables,
-        listNamedQueries,
-        getNamedQuery,
-        executeQuery,
-        executeNamedQuery,
-        describeTable,
-      };
-
       // Try direct intent routing first
-      const directResponse = await runDirectIntent(normalizedMessage, intentContext);
+      const directResponse = await runDirectIntent(normalizedMessage, callTool);
 
       if (directResponse) {
         // Direct intent handled successfully
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: directResponse.reply,
-            toolCalls: directResponse.toolCalls || [],
-          },
-        ]);
+        const directToolName = directResponse.toolCalls?.[0]?.name || null;
+        const directResultRows = extractResultRows(directToolName, directResponse, directResponse.results);
+        const directResultMetadata = getResultMetadata(directToolName, directResponse, { preferredDisplay: "table" });
 
-        setResultRows(extractResultRows(null, directResponse, directResponse.results));
-        setResultMetadata({ preferredDisplay: "table" });
+        setMessages((prev) => ([
+          ...prev,
+          createTextMessage("assistant", directResponse.reply, directResponse.toolCalls || []),
+        ]));
+
+        if (directResultRows.length > 0) {
+          setResultRows(directResultRows);
+          setResultMetadata(directResultMetadata);
+        }
 
         if (directResponse.pendingQuery) {
           setPendingQuery(directResponse.pendingQuery);
         }
 
-        setLoading(false);
         return;
       }
 
       // Fall back to Gemini for complex requests
-      const genAI = new GoogleGenerativeAI(config.geminiApiKey);
       const toolConfig = {
         functionCallingConfig: {
           mode: FunctionCallingMode.AUTO,
@@ -189,17 +170,18 @@ export const useGeminiChat = ({ showPopup } = {}) => {
       });
 
       const chat = model.startChat({
-        history: toGeminiHistory(messages),
+        history: toGeminiHistory(messagesRef.current),
         tools: [{ functionDeclarations: toolDefinitions }],
         toolConfig,
       });
 
       const toolCalls = [];
       let latestResults = [];
+      let hasResultPanelUpdate = false;
       let nextInput = normalizedMessage;
 
       // Multi-turn tool execution
-      for (let turn = 0; turn < 5; turn += 1) {
+      for (let turn = 0; turn < MAX_TOOL_TURNS; turn += 1) {
         const result = await chat.sendMessage(nextInput);
         const response = result?.response;
         if (!response) {
@@ -213,15 +195,12 @@ export const useGeminiChat = ({ showPopup } = {}) => {
           // No more tool calls, we're done
           setMessages((prev) => [
             ...prev,
-            {
-              role: "assistant",
-              content: replyText || "Done.",
-              toolCalls,
-            },
+            createTextMessage("assistant", replyText || "Done.", toolCalls),
           ]);
 
-          setResultRows(latestResults);
-          setLoading(false);
+          if (hasResultPanelUpdate) {
+            setResultRows(latestResults);
+          }
           return;
         }
 
@@ -240,11 +219,10 @@ export const useGeminiChat = ({ showPopup } = {}) => {
 
             setMessages((prev) => [
               ...prev,
-              {
-                role: "assistant",
-                content: toolResult.message,
-                toolCalls,
-              },
+              createConfirmationMessage(toolResult.message, {
+                query: toolResult.query,
+                explanation: toolResult.explanation || args.explanation || "",
+              }),
             ]);
 
             setPendingQuery(
@@ -253,8 +231,6 @@ export const useGeminiChat = ({ showPopup } = {}) => {
                 explanation: toolResult.explanation || args.explanation || "",
               })
             );
-            setResultRows([]);
-            setLoading(false);
             return;
           }
 
@@ -263,11 +239,11 @@ export const useGeminiChat = ({ showPopup } = {}) => {
 
             setMessages((prev) => [
               ...prev,
-              {
-                role: "assistant",
-                content: toolResult.message,
-                toolCalls,
-              },
+              createConfirmationMessage(toolResult.message, {
+                queryName: toolResult.queryName || args.queryName,
+                parameters: toolResult.parameters || args.parameters || {},
+                explanation: toolResult.explanation || "Named query execution requires confirmation.",
+              }),
             ]);
 
             setPendingQuery(
@@ -277,27 +253,48 @@ export const useGeminiChat = ({ showPopup } = {}) => {
                 explanation: toolResult.explanation || "Named query execution requires confirmation.",
               })
             );
-            setResultRows([]);
-            setLoading(false);
             return;
+          }
+
+          if (toolName === "executeAllNamedQueries" && toolResult.requiresConfirmation) {
+            toolCalls.push(buildToolCallRecord(toolName, args, toolResult, "pending_confirmation"));
+
+            setMessages((prev) => [
+              ...prev,
+              createConfirmationMessage(toolResult.message, {
+                queryGroup: toolResult.queryGroup || args.queryGroup || "",
+                explanation: toolResult.explanation || "Bulk named query execution requires confirmation.",
+              }),
+            ]);
+
+            setPendingQuery(
+              buildPendingAction("executeAllNamedQueries", {
+                queryGroup: toolResult.queryGroup || args.queryGroup || "",
+                explanation: toolResult.explanation || "Bulk named query execution requires confirmation.",
+              })
+            );
+            return;
+          }
+
+          if (toolName === "getNamedQuery") {
+            toolCalls.push(buildToolCallRecord(toolName, args, toolResult));
+
+            functionResponses.push({
+              functionResponse: {
+                name: toolName,
+                response: toolResult,
+              },
+            });
+            continue;
           }
 
           // Tool completed successfully
           toolCalls.push(buildToolCallRecord(toolName, args, toolResult));
 
           latestResults = extractResultRows(toolName, toolResult);
-
-          // Extract result metadata for display type
-          if (isListTool(toolName)) {
-            setResultMetadata({ preferredDisplay: "table" });
-          } else if (toolResult.namedQuery) {
-            setResultMetadata({
-              queryName: toolResult.queryName,
-              preferredDisplay: toolResult.namedQuery.preferred_display || "table",
-            });
-          } else {
-            setResultMetadata(null);
-          }
+          hasResultPanelUpdate = true;
+          setResultMetadata(getResultMetadata(toolName, toolResult, null));
+          setResultRows(latestResults);
 
           functionResponses.push({
             functionResponse: {
@@ -311,27 +308,24 @@ export const useGeminiChat = ({ showPopup } = {}) => {
       }
 
       // If we get here, we reached max turns
+      const maxTurnsMessage = "Your question required too many steps to answer. Try breaking it into smaller questions or being more specific.";
+      if (isDev) {
+        console.warn(`[AI] Max tool turns (${MAX_TOOL_TURNS}) exceeded. Tool calls made:`, toolCalls.map(tc => `${tc.name}(${JSON.stringify(tc.args)})`).join(", "));
+      }
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: "I reached the maximum number of tool turns. Please try a simpler request.",
-          toolCalls,
-        },
+        createTextMessage("assistant", maxTurnsMessage, toolCalls),
       ]);
-
-      setResultRows(latestResults);
+      if (hasResultPanelUpdate) {
+        setResultRows(latestResults);
+      }
     } catch (error) {
       const errorMessage = getGeminiErrorMessage(error, "Failed to process request");
 
       setError(errorMessage);
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: errorMessage,
-          toolCalls: [],
-        },
+        createErrorMessage(errorMessage),
       ]);
     } finally {
       setLoading(false);
@@ -339,15 +333,8 @@ export const useGeminiChat = ({ showPopup } = {}) => {
   }, [
     config,
     queryDashboard,
-    messages,
+    genAI,
     callTool,
-    listDatabases,
-    listTables,
-    listNamedQueries,
-    getNamedQuery,
-    executeQuery,
-    executeNamedQuery,
-    describeTable,
   ]);
 
   // Confirm and execute pending query
@@ -390,22 +377,60 @@ export const useGeminiChat = ({ showPopup } = {}) => {
           setResultMetadata(null);
         }
 
+        const successMessage = `Named query executed successfully. Found ${rowCount} row${rowCount === 1 ? "" : "s"}.`;
+        const resultMessage = createExecutionResultMessage({
+          toolName: "executeNamedQuery",
+          rows: extractResultRows("executeNamedQuery", result, rows),
+          metadata: result?.namedQuery
+            ? {
+                queryName,
+                preferredDisplay: result.namedQuery.preferred_display || "table",
+              }
+            : null,
+          queryName,
+        });
+
         setMessages((prev) => [
           ...prev,
-          {
-            role: "assistant",
-            content: `Named query executed successfully. Found ${rowCount} row${rowCount === 1 ? "" : "s"}.`,
-            toolCalls: [
+          createTextMessage(
+            "assistant",
+            successMessage,
+            [
               buildToolCallRecord(
                 "executeNamedQuery",
                 { queryName, parameters, confirmed: true },
                 { ...result, rows, rowCount }
               ),
-            ],
-          },
+            ]
+          ),
+          ...(resultMessage ? [resultMessage] : []),
         ]);
 
         setResultRows(extractResultRows("executeNamedQuery", result, rows));
+      } else if (tool === "executeAllNamedQueries") {
+        const queryGroup = action.queryGroup?.trim() || "";
+        const explanation = action.explanation || "";
+        result = await callTool("executeAllNamedQueries", { queryGroup, confirmed: true, explanation });
+        const bulkExecutionResult = buildBulkNamedQueryExecutionResult(result, queryGroup);
+
+        setMessages((prev) => [
+          ...prev,
+          createTextMessage(
+            "assistant",
+            bulkExecutionResult.successMessage,
+            [
+              buildToolCallRecord(
+                "executeAllNamedQueries",
+                { queryGroup, explanation, confirmed: true },
+                result
+              ),
+            ]
+          ),
+          ...(bulkExecutionResult.resultMessage ? [bulkExecutionResult.resultMessage] : []),
+        ]);
+
+        setResultRows(bulkExecutionResult.rows);
+        setResultMetadata(bulkExecutionResult.metadata);
       } else {
         const finalQuery = action?.query;
         if (!finalQuery?.trim()) {
@@ -415,18 +440,27 @@ export const useGeminiChat = ({ showPopup } = {}) => {
         const explanation = action?.explanation || "";
         result = await callTool("executeQuery", { query: finalQuery, explanation, confirmed: true });
 
+        const successMessage = `Query executed successfully. Found ${result.rowCount} row${result.rowCount === 1 ? "" : "s"}.`;
+        const resultRowsForChat = extractResultRows("executeQuery", result);
+        const resultMessage = createExecutionResultMessage({
+          toolName: "executeQuery",
+          rows: resultRowsForChat,
+          metadata: null,
+        });
+
         setMessages((prev) => [
           ...prev,
-          {
-            role: "assistant",
-            content: `Query executed successfully. Found ${result.rowCount} row${result.rowCount === 1 ? "" : "s"}.`,
-            toolCalls: [
+          createTextMessage(
+            "assistant",
+            successMessage,
+            [
               buildToolCallRecord("executeQuery", { query: finalQuery, explanation, confirmed: true }, result),
-            ],
-          },
+            ]
+          ),
+          ...(resultMessage ? [resultMessage] : []),
         ]);
 
-        setResultRows(extractResultRows("executeQuery", result));
+        setResultRows(resultRowsForChat);
         setResultMetadata(null); // Reset metadata for direct SQL queries
       }
 
@@ -434,14 +468,7 @@ export const useGeminiChat = ({ showPopup } = {}) => {
     } catch (error) {
       const errorMessage = getGeminiErrorMessage(error, "Failed to execute query");
       setError(errorMessage);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: errorMessage,
-          toolCalls: [],
-        },
-      ]);
+      setMessages((prev) => [...prev, createErrorMessage(errorMessage)]);
     } finally {
       setPendingQueryLoading(false);
     }
@@ -452,11 +479,7 @@ export const useGeminiChat = ({ showPopup } = {}) => {
     setPendingQuery(null);
     setMessages((prev) => [
       ...prev,
-      {
-        role: "assistant",
-        content: "Query cancelled.",
-        toolCalls: [],
-      },
+      createTextMessage("assistant", "Query cancelled."),
     ]);
   }, []);
 
@@ -473,6 +496,12 @@ export const useGeminiChat = ({ showPopup } = {}) => {
       showPopup("Conversation cleared successfully", "success");
     }
   }, [showPopup, clearChatPersistence]);
+
+  // Memoize token estimation to avoid recalculation on every render
+  const estimatedTokens = useMemo(
+    () => estimateConversationTokens(messages),
+    [messages]
+  );
 
   return {
     // State
@@ -492,13 +521,13 @@ export const useGeminiChat = ({ showPopup } = {}) => {
 
     // Computed
     hasError: !!error,
-    canChat: config.isValid && config.geminiApiKey && queryDashboard.connectionInfo?.serverUrl && queryDashboard.jwtToken,
+    canChat: config.isValid && config.geminiApiKey && queryDashboard.connectionInfo?.serverUrl && queryDashboard.jwtToken && !loading && !pendingQuery && !pendingQueryLoading,
     hasPendingAction: !!pendingQuery,
 
     // Chat statistics
     messageCount: messages.length,
-    estimatedTokens: estimateConversationTokens(messages),
-    isCompacted: messages.length > COMPACT_THRESHOLD,
+    estimatedTokens,
+    isCompacted: messages.length > COMPACTION_TRIGGER_THRESHOLD,
   };
 };
 

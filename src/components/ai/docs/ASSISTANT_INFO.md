@@ -37,6 +37,9 @@ components/
     ├── AIErrorBoundary.jsx
     ├── ConfigErrorBoundary.jsx
     ├── ChatMessage.jsx
+    ├── MessageRenderer.jsx
+    ├── ResultVisualization.jsx
+    ├── BulkNamedQueryResults.jsx
     ├── SQLPreviewModal.jsx
     ├── ToolBadge.jsx
     │
@@ -49,6 +52,7 @@ components/
     │   ├── useGeminiChat.js
     │   ├── useChatPersistence.js
     │   ├── useConversationCompaction.js
+    │   ├── resultMessageHelpers.js
     │   └── useToolExecution.js
     │
     └── tools/
@@ -92,8 +96,12 @@ Results
 
 | Component | Responsibility |
 |------------|---------------|
-| AIChat | Assistant UI and result presentation |
-| useGeminiChat | Conversation orchestration |
+| AIChat | Assistant shell, chat stream, composer, and result layout |
+| MessageRenderer | Routes message kinds to the appropriate UI |
+| ResultVisualization | Renders standard query visualizations |
+| BulkNamedQueryResults | Renders bulk named-query results |
+| useGeminiChat | Conversation orchestration and execution-driven message creation |
+| resultMessageHelpers | Result message shaping and bulk metadata helpers |
 | toolRegistry | Tool definitions and execution |
 | QueryDashboardContext | Backend communication |
 | queryValidator | Read-only SQL enforcement |
@@ -128,6 +136,22 @@ User Request
   ↓
 Gemini
   ↓
+executeAllNamedQueries Tool Call
+  ↓
+Named Queries Preview
+  ↓
+User Confirmation
+  ↓
+Execution
+  ↓
+Results
+```
+
+```text
+User Request
+  ↓
+Gemini
+  ↓
 executeNamedQuery Tool Call
   ↓
 Named Query Preview
@@ -156,6 +180,12 @@ The assistant exposes a set of browser-side tools through `toolRegistry.js`.
 
 - executeQuery
 - executeNamedQuery
+- executeAllNamedQueries
+
+The bulk named-query flow is bounded to keep memory and UI usage predictable:
+
+- Maximum bulk queries per run: 20
+- Maximum stored rows per query: 100
 
 All tools execute through the existing Query Dashboard infrastructure.
 
@@ -220,7 +250,12 @@ src/services/geminiValidation.js
 
 ```text
 src/components/ai/AIChat.jsx
+src/components/ai/util/MessageRenderer.jsx
+src/components/ai/util/ResultVisualization.jsx
+src/components/ai/util/BulkNamedQueryResults.jsx
+src/components/ai/util/SQLPreviewModal.jsx
 src/components/ai/hooks/useGeminiChat.js
+src/components/ai/hooks/resultMessageHelpers.js
 ```
 
 ### Gemini Integration
@@ -259,16 +294,20 @@ src/context/QueryDashboardContext.jsx
 Primary AI Assistant coverage is provided by:
 
 ```text
+tests/toolRegistry.test.js
 tests/AIFlow.test.js
 tests/queryValidator.test.js
+tests/aiMessageRendering.test.jsx
 ```
 
 These tests cover:
 
 - Named query workflows
+- Bulk named-query workflows
 - SQL workflows
 - Confirmation flows
 - Result rendering
+- Bulk result truncation and limits
 - Query validation
 
 ---
