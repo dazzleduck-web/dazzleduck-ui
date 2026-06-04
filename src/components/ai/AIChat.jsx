@@ -92,9 +92,9 @@ const AIChat = ({ showPopup } = {}) => {
   return (
     <AIErrorBoundary onReset={() => geminiChat.clearConversation()}>
       <div className="mx-2 py-6 sm:mx-4 md:mx-10">
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
 
-          {/* ── Main chat card ─────────────────────────────────────── */}
+          {/* ── Chat Section ─────────────────────────────────────── */}
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5">
 
             {/* Header */}
@@ -173,118 +173,121 @@ const AIChat = ({ showPopup } = {}) => {
               </div>
             )}
 
-            {/* Chat body */}
-            <div className="flex flex-col overflow-hidden">
-              <div className="flex h-[90vh] flex-col border-b border-slate-200 bg-slate-50">
+            {/* Chat body - Messages and Input */}
+            <div className="flex h-[90vh] flex-col bg-slate-50">
 
-                {/* Messages */}
-                <div
-                  ref={messagesContainerRef}
-                  className="flex-1 space-y-2 overflow-y-auto bg-white p-4 md:p-5"
-                  role="log"
-                  aria-live="polite"
-                  aria-label="Chat messages"
-                >
-                  {geminiChat.messages.map((message, index) => (
-                    <MessageRenderer
-                      key={message.id || `${message.role}-${index}`}
-                      message={message}
-                      showPopup={showPopup}
-                    />
-                  ))}
+              {/* Messages */}
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 space-y-2 overflow-y-auto bg-neutral-100 p-4 md:p-5"
+                role="log"
+                aria-live="polite"
+                aria-label="Chat messages"
+              >
+                {geminiChat.messages.map((message, index) => (
+                  <MessageRenderer
+                    key={message.id || `${message.role}-${index}`}
+                    message={message}
+                    showPopup={showPopup}
+                  />
+                ))}
 
-                  {geminiChat.loading && (
-                    <div className="w-fit rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-400 shadow-sm">
-                      Thinking…
-                    </div>
-                  )}
-
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input area */}
-                <div className="border-t border-slate-200 bg-white px-4 py-3">
-                  <div className="flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 focus-within:border-slate-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/8 transition-all">
-                    <textarea
-                      value={input}
-                      onChange={(event) => setInput(event.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={
-                        aiConfig.hasValidConfig
-                          ? "Ask a database question…"
-                          : "Configure your API key first…"
-                      }
-                      rows={2}
-                      disabled={!aiConfig.hasValidConfig}
-                      className="min-h-[44px] flex-1 resize-none bg-transparent py-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSend}
-                      disabled={geminiChat.loading || geminiChat.pendingQueryLoading || !input.trim() || !aiConfig.hasValidConfig}
-                      className="mb-0.5 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={geminiChat.pendingQueryLoading ? "Cannot send while executing query" : "Send message"}
-                    >
-                      {geminiChat.loading ? (
-                        <AiOutlineReload className="animate-spin" />
-                      ) : (
-                        <AiOutlineSend />
-                      )}
-                      Send
-                    </button>
-                  </div>
-                  <p className="mt-1.5 px-1 text-xs text-slate-400">
-                    Enter to send · Shift+Enter for new line
-                  </p>
-                </div>
-              </div>
-
-              {/* ── Results panel ───────────────────────────────────── */}
-              <div className="mt-6 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-5">
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  {bulkResultsData ? (
-                    <BulkNamedQueryResults
-                      bulkResultsData={bulkResultsData}
-                      showPopup={showPopup}
-                    />
-                  ) : resultRows.length > 0 ? (
-                    <ResultVisualization
-                      title="Results"
-                      rows={resultRows}
-                      metadata={geminiChat.resultMetadata}
-                      displayType={resultDisplayType}
-                      onDisplayTypeChange={setResultDisplayType}
-                      showPopup={showPopup}
-                      showDisplaySelector={true}
-                      defaultRows={10}
-                    />
-                  ) : (
-                    <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-xs text-slate-400">
-                      Results from confirmed queries will appear here.
-                    </div>
-                  )}
-                </div>
-
-                {/* Tool calls */}
-                {latestToolSummary.length > 0 && (
-                  <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <p className="mb-2 text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Tool calls
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {latestToolSummary.map((tool, index) => (
-                        <span
-                          key={`${tool.name}-${index}`}
-                          className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
-                        >
-                          {tool.name}
-                        </span>
-                      ))}
-                    </div>
+                {geminiChat.loading && (
+                  <div className="w-fit rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-400 shadow-sm">
+                    Thinking…
                   </div>
                 )}
+
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input area */}
+              <div className="border-t-2 border-slate-300 bg-gradient-to-b from-slate-200 to-slate-300 px-5 py-4">
+                <div className="flex items-end gap-3 rounded-xl border border-neutral-300 bg-white px-4 py-3 shadow-md transition-all">
+                  <textarea
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      aiConfig.hasValidConfig
+                        ? "Ask a database question…"
+                        : "Configure your API key first…"
+                    }
+                    rows={2}
+                    disabled={!aiConfig.hasValidConfig}
+                    className="min-h-[48px] flex-1 resize-none py-2 text-sm font-medium text-slate-700 outline-none placeholder:text-slate-500 placeholder:font-normal disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={geminiChat.loading || geminiChat.pendingQueryLoading || !input.trim() || !aiConfig.hasValidConfig}
+                    className="mb-0.5 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-all hover:from-blue-700 hover:to-blue-800 hover:shadow-lg active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                    title={geminiChat.pendingQueryLoading ? "Cannot send while executing query" : "Send message"}
+                  >
+                    {geminiChat.loading ? (
+                      <AiOutlineReload className="text-sm animate-spin" />
+                    ) : (
+                      <AiOutlineSend className="text-sm" />
+                    )}
+                    Send
+                  </button>
+                </div>
+                <p className="mt-2 px-1 text-xs text-slate-600 font-medium">
+                  Enter to send · Shift+Enter for new line
+                </p>
               </div>
             </div>
+          </section>
+
+          {/* ── Results Section ─────────────────────────────────── */}
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 p-5">
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-slate-900">Query Results</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Results from confirmed queries</p>
+            </div>
+
+            <div className="rounded-xl p-4">
+              {bulkResultsData ? (
+                <BulkNamedQueryResults
+                  bulkResultsData={bulkResultsData}
+                  showPopup={showPopup}
+                />
+              ) : resultRows.length > 0 ? (
+                <ResultVisualization
+                  title="Results"
+                  rows={resultRows}
+                  metadata={geminiChat.resultMetadata}
+                  displayType={resultDisplayType}
+                  onDisplayTypeChange={setResultDisplayType}
+                  showPopup={showPopup}
+                  showDisplaySelector={true}
+                  defaultRows={10}
+                />
+              ) : (
+                <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white text-xs text-slate-400">
+                  Results from confirmed queries will appear here.
+                </div>
+              )}
+            </div>
+
+            {/* Tool calls */}
+            {latestToolSummary.length > 0 && (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="mb-2 text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  Tool calls
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {latestToolSummary.map((tool, index) => (
+                    <span
+                      key={`${tool.name}-${index}`}
+                      className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+                    >
+                      {tool.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           <SQLPreviewModal

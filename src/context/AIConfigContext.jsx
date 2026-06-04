@@ -4,8 +4,70 @@ import { validateApiKey } from "../services/geminiValidation";
 
 const AIConfigContext = createContext();
 const STORAGE_KEY = "dazzleduck_ai_config";
+const SESSION_KEY_STORAGE = "dazzleduck_sk";
 
-const readStoredConfig = () => {
+const toBase64 = (arr) => btoa(String.fromCharCode(...new Uint8Array(arr)));
+
+const fromBase64 = (str) => {
+  const binaryString = atob(str);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
+
+const exportKey = async (key) => {
+  const exported = await crypto.subtle.exportKey("raw", key);
+  return toBase64(exported);
+};
+
+const importKey = async (exported) => {
+  const bytes = fromBase64(exported);
+  return crypto.subtle.importKey(
+    "raw",
+    bytes,
+    { name: "AES-GCM" },
+    true,
+    ["encrypt", "decrypt"]
+  );
+};
+
+const encryptApiKey = async (apiKey) => {
+  const sessionKey = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    sessionKey,
+    new TextEncoder().encode(apiKey)
+  );
+
+  return {
+    sessionKeyExported: await exportKey(sessionKey),
+    ciphertext: toBase64(ciphertext),
+    iv: toBase64(iv),
+  };
+};
+
+const decryptApiKey = async (sessionKeyExported, ciphertext, iv) => {
+  const sessionKey = await importKey(sessionKeyExported);
+  const ciphertextBytes = fromBase64(ciphertext);
+  const ivBytes = fromBase64(iv);
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: ivBytes },
+    sessionKey,
+    ciphertextBytes
+  );
+
+  return new TextDecoder().decode(decrypted);
+};
+
+const readStoredConfig = async () => {
   // Try localStorage first (remember me), then fall back to sessionStorage.
   let storedConfig = localStorage.getItem(STORAGE_KEY);
   let sourceStorage = localStorage;
@@ -34,8 +96,30 @@ const readStoredConfig = () => {
     return null;
   }
 
+  let geminiApiKey = null;
+
+  if (sourceStorage === localStorage && parsed.ciphertext && parsed.iv) {
+    // Encrypted API key in localStorage
+    const sessionKeyExported = sessionStorage.getItem(SESSION_KEY_STORAGE);
+    if (sessionKeyExported) {
+      try {
+        geminiApiKey = await decryptApiKey(sessionKeyExported, parsed.ciphertext, parsed.iv);
+      } catch (error) {
+        console.warn("Failed to decrypt API key:", error);
+        // Session key expired or corrupted; clear storage
+        localStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(SESSION_KEY_STORAGE);
+        return null;
+      }
+    }
+    // If no session key, API key cannot be decrypted; return null
+  } else if (sourceStorage === sessionStorage && parsed.geminiApiKey) {
+    // Unencrypted API key in sessionStorage
+    geminiApiKey = parsed.geminiApiKey;
+  }
+
   return {
-    geminiApiKey: sourceStorage === localStorage ? parsed.geminiApiKey : null,
+    geminiApiKey,
     geminiModel: parsed.geminiModel,
     rememberMe: parsed.rememberMe || false,
     isValid: false,
@@ -67,32 +151,49 @@ export const AIConfigProvider = ({ children }) => {
 
   // Load configuration from storage on mount
   useEffect(() => {
-    try {
-      const storedConfig = readStoredConfig();
-      if (storedConfig) {
-        setConfig(storedConfig);
+    (async () => {
+      try {
+        const storedConfig = await readStoredConfig();
+        if (storedConfig) {
+          setConfig(storedConfig);
+        }
+      } catch (error) {
+        console.error("Failed to load AI config:", error);
       }
-    } catch (error) {
-      console.error("Failed to load AI config:", error);
-    }
+    })();
   }, []);
 
   // Save configuration to storage
-  const saveConfig = useCallback((newConfig) => {
-    const storage = newConfig.rememberMe ? localStorage : sessionStorage;
-    const configToStore = {
-      geminiApiKey: newConfig.geminiApiKey,
-      geminiModel: newConfig.geminiModel,
-      rememberMe: newConfig.rememberMe,
-      lastValidated: newConfig.lastValidated,
-    };
-
+  const saveConfig = useCallback(async (newConfig) => {
     try {
-      storage.setItem(STORAGE_KEY, JSON.stringify(configToStore));
+      if (newConfig.rememberMe) {
+        // Encrypt API key for localStorage
+        const { sessionKeyExported, ciphertext, iv } = await encryptApiKey(newConfig.geminiApiKey);
 
-      // Clear from the other storage
-      const otherStorage = newConfig.rememberMe ? sessionStorage : localStorage;
-      otherStorage.removeItem(STORAGE_KEY);
+        const configToStore = {
+          ciphertext,
+          iv,
+          geminiModel: newConfig.geminiModel,
+          rememberMe: newConfig.rememberMe,
+          lastValidated: newConfig.lastValidated,
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(configToStore));
+        sessionStorage.setItem(SESSION_KEY_STORAGE, sessionKeyExported);
+        sessionStorage.removeItem(STORAGE_KEY);
+      } else {
+        // Store unencrypted in sessionStorage
+        const configToStore = {
+          geminiApiKey: newConfig.geminiApiKey,
+          geminiModel: newConfig.geminiModel,
+          rememberMe: newConfig.rememberMe,
+          lastValidated: newConfig.lastValidated,
+        };
+
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(configToStore));
+        localStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(SESSION_KEY_STORAGE);
+      }
     } catch (error) {
       console.error("Failed to save AI config:", error);
     }
@@ -150,7 +251,7 @@ export const AIConfigProvider = ({ children }) => {
       setConfig(newConfig);
 
       if (isValid) {
-        saveConfig(newConfig);
+        await saveConfig(newConfig);
       }
     } finally {
       if (isLatestValidationRequest(requestId)) {
@@ -188,7 +289,7 @@ export const AIConfigProvider = ({ children }) => {
       setConfig(newConfig);
 
       if (isValid) {
-        saveConfig(newConfig);
+        await saveConfig(newConfig);
       }
     } finally {
       if (isLatestValidationRequest(requestId)) {
@@ -224,7 +325,7 @@ export const AIConfigProvider = ({ children }) => {
       setConfig(newConfig);
 
       if (isValid) {
-        saveConfig(newConfig);
+        await saveConfig(newConfig);
       }
 
       return isValid;
