@@ -12,22 +12,22 @@ const VariableManager = ({ query, variables, onUpdateVariables }) => {
     const dropdownRef = useRef(null);
     const tipRef = useRef(null);
 
-    // Close dropdown when clicking outside
+    // Close dropdown and tip when clicking outside (using refs to avoid stale closure)
+    // Keep dropdown open while user is editing a variable to prevent losing changes
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setShowModal(false);
-            }
-            if (tipRef.current && !tipRef.current.contains(event.target)) {
-                setShowTip(false);
-            }
+            setShowModal(prev => {
+                if (editingVariable) return prev; // Don't close while editing
+                return dropdownRef.current?.contains(event.target) ? prev : false;
+            });
+            setShowTip(prev => tipRef.current?.contains(event.target) ? prev : false);
         };
 
         document.addEventListener("mousedown", handleClickOutside);
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, []);
+    }, [editingVariable]);
 
     // Regex to find variables in format {variable_name} or {variable_name:default_value}
     // Must have at least one character inside the braces, excludes {} used for string literals

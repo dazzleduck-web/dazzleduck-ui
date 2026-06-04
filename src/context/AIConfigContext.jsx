@@ -100,7 +100,7 @@ const readStoredConfig = async () => {
 
   if (sourceStorage === localStorage && parsed.ciphertext && parsed.iv) {
     // Encrypted API key in localStorage
-    const sessionKeyExported = sessionStorage.getItem(SESSION_KEY_STORAGE);
+    const sessionKeyExported = localStorage.getItem(SESSION_KEY_STORAGE);
     if (sessionKeyExported) {
       try {
         geminiApiKey = await decryptApiKey(sessionKeyExported, parsed.ciphertext, parsed.iv);
@@ -108,7 +108,7 @@ const readStoredConfig = async () => {
         console.warn("Failed to decrypt API key:", error);
         // Session key expired or corrupted; clear storage
         localStorage.removeItem(STORAGE_KEY);
-        sessionStorage.removeItem(SESSION_KEY_STORAGE);
+        localStorage.removeItem(SESSION_KEY_STORAGE);
         return null;
       }
     }
@@ -179,7 +179,7 @@ export const AIConfigProvider = ({ children }) => {
         };
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(configToStore));
-        sessionStorage.setItem(SESSION_KEY_STORAGE, sessionKeyExported);
+        localStorage.setItem(SESSION_KEY_STORAGE, sessionKeyExported);
         sessionStorage.removeItem(STORAGE_KEY);
       } else {
         // Store unencrypted in sessionStorage
@@ -192,7 +192,7 @@ export const AIConfigProvider = ({ children }) => {
 
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(configToStore));
         localStorage.removeItem(STORAGE_KEY);
-        sessionStorage.removeItem(SESSION_KEY_STORAGE);
+        localStorage.removeItem(SESSION_KEY_STORAGE);
       }
     } catch (error) {
       console.error("Failed to save AI config:", error);

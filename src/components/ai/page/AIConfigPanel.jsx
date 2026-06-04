@@ -26,6 +26,18 @@ const AIConfigPanel = () => {
 
   const tipRef = useRef(null);
 
+  // Close tip popup when clicking outside (using refs to avoid stale closure)
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      setShowTip(prev => tipRef.current?.contains(event.target) ? prev : false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // Initialize with current config if available
   useEffect(() => {
     if (config.geminiApiKey) {
