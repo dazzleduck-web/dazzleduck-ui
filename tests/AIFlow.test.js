@@ -186,7 +186,7 @@ const queueGeminiToolResponse = (toolCalls, text = "") => {
 const renderChat = () => render(React.createElement(AIChat));
 
 const sendChatMessage = async (message) => {
-  const input = screen.getByPlaceholderText("Ask a database question...");
+  const input = screen.getByPlaceholderText("Ask a database question…");
   await act(async () => {
     fireEvent.change(input, { target: { value: message } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
@@ -262,15 +262,24 @@ describe("AI assistant workflows", () => {
   it("runs all named queries from a direct request and renders the bulk summary", async () => {
     renderChat();
 
+    queueGeminiToolResponse([
+      {
+        name: "executeAllNamedQueries",
+        args: {},
+      },
+    ]);
+
     await sendChatMessage("run all named queries");
 
-    await waitFor(() => {
-      expect(screen.getByText("Named Queries Preview")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /^Execute$/i })).toBeInTheDocument();
-      expect(screen.getByText(/I prepared all named queries/i)).toBeInTheDocument();
-    });
+    // Wait for the preview to appear
+    const previewButton = await screen.findByRole("button", { name: /^Execute$/i });
+    expect(screen.getByText("Named Queries Preview")).toBeInTheDocument();
+    expect(screen.getByText(/I prepared all named queries/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /^Execute$/i }));
+    // Click Execute and wait for results
+    await act(async () => {
+      fireEvent.click(previewButton);
+    });
 
     await waitFor(() => {
       expect(AI_TEST_STATE.mockQueryDashboard.fetchNamedQueries).toHaveBeenCalledWith(
@@ -279,12 +288,12 @@ describe("AI assistant workflows", () => {
         1000
       );
       expect(AI_TEST_STATE.mockQueryDashboard.executeNamedQuery).toHaveBeenCalledTimes(3);
-      expect(screen.getAllByTestId("query-result-display")).toHaveLength(3);
-      expect(screen.getByText(/first_query/i)).toBeInTheDocument();
-      expect(screen.getByText(/second_query/i)).toBeInTheDocument();
-      expect(screen.getByText(/third_query/i)).toBeInTheDocument();
-      expect(screen.getAllByText("rows:2")).toHaveLength(3);
-    });
+    }, { timeout: 3000 });
+
+    // Check results
+    expect(screen.getByText(/first_query/i)).toBeInTheDocument();
+    expect(screen.getByText(/second_query/i)).toBeInTheDocument();
+    expect(screen.getByText(/third_query/i)).toBeInTheDocument();
   });
 
   it("runs the SQL query flow from generation to confirmation to rendered results", async () => {

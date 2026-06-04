@@ -35,7 +35,7 @@ export const COMPACTION_KEEP_COUNT = 30;
  * When Gemini calls tools iteratively, this limits how many back-and-forth turns can happen
  * Higher values allow more complex workflows but increase API costs and latency
  */
-export const MAX_TOOL_TURNS = 5;
+export const MAX_TOOL_TURNS = 10;
 
 /**
  * Per-Query Timeout: Maximum time (ms) to wait for a single named query to execute

@@ -170,11 +170,11 @@ describe("MessageRenderer", () => {
     );
 
     expect(screen.getByText("Executed 2 named queries.")).toBeInTheDocument();
-    expect(screen.getAllByTestId("query-result-display")).toHaveLength(2);
+    expect(screen.getAllByTestId("result-visualization")).toHaveLength(2);
     expect(screen.getByText("first_query")).toBeInTheDocument();
     expect(screen.getByText("second_query")).toBeInTheDocument();
-    expect(screen.getAllByTestId("query-result-display")[0]).toHaveAttribute("data-rows", "2");
-    expect(screen.getAllByTestId("query-result-display")[1]).toHaveAttribute("data-rows", "4");
+    expect(screen.getAllByTestId("result-visualization")[0]).toHaveAttribute("data-rows", "2");
+    expect(screen.getAllByTestId("result-visualization")[1]).toHaveAttribute("data-rows", "4");
   });
 
   it("shows truncation messaging for bulk named-query results", () => {
@@ -228,7 +228,13 @@ describe("MessageRenderer", () => {
       />
     );
 
-    expect(screen.getByText(`Showing first ${MAX_ROWS_PER_QUERY.toLocaleString("en-US")} rows of 12,457 total rows.`)).toBeInTheDocument();
-    expect(screen.getByTestId("query-result-display")).toHaveAttribute("data-rows", String(MAX_ROWS_PER_QUERY));
+    expect(screen.getByText((content, element) => {
+      return element?.className?.includes("border-amber-200")
+        && element?.textContent.includes(`Showing first ${MAX_ROWS_PER_QUERY.toLocaleString("en-US")}`)
+        && element?.textContent.includes("of")
+        && element?.textContent.includes("12,457")
+        && element?.textContent.includes("total rows");
+    })).toBeInTheDocument();
+    expect(screen.getByTestId("result-visualization")).toHaveAttribute("data-rows", String(MAX_ROWS_PER_QUERY));
   });
 });

@@ -79,7 +79,7 @@ describe("toolRegistry bulk named-query execution", () => {
     expect(result.successCount).toBe(2);
     expect(result.failureCount).toBe(1);
     expect(result.errors).toEqual([
-      { queryName: "second_query", error: "Second query failed" },
+      { queryName: "second_query", error: "Second query failed", timedOut: false },
     ]);
     expect(result.results).toHaveLength(3);
     expect(result.results[0]).toMatchObject({
