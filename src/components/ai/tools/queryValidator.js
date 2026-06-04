@@ -63,19 +63,11 @@ export function validateReadOnlyQuery(query) {
 }
 
 /**
- * Normalize and add safety limits to query
- * @returns {string} The normalized query with LIMIT clause if needed
+ * Normalize query (validate read-only safety)
+ * @returns {string} The normalized validated query
  */
 export function normalizeReadOnlyQuery(query) {
-  const safeQuery = validateReadOnlyQuery(query);
-  const upperQuery = safeQuery.toUpperCase();
-
-  // Add LIMIT 100 to SELECT and WITH queries if they don't have one
-  if ((upperQuery.startsWith("SELECT") || upperQuery.startsWith("WITH")) && !/\bLIMIT\b/i.test(safeQuery)) {
-    return `${safeQuery} LIMIT 100`;
-  }
-
-  return safeQuery;
+  return validateReadOnlyQuery(query);
 }
 
 export default {

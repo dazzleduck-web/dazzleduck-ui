@@ -53,10 +53,6 @@ const shouldFallbackVisualization = (displayType, data) => {
     return true;
   }
 
-  if (normalizedDisplayType === "pie" && Object.keys(data[0]).length < 2) {
-    return true;
-  }
-
   return false;
 };
 

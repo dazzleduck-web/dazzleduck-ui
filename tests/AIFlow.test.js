@@ -321,7 +321,7 @@ describe("AI assistant workflows", () => {
     await waitFor(() => {
       expect(AI_TEST_STATE.mockQueryDashboard.executeQuery).toHaveBeenCalledWith(
         "http://localhost:8081",
-        "SELECT order_id, total FROM orders ORDER BY order_id LIMIT 100",
+        "SELECT order_id, total FROM orders ORDER BY order_id",
         0,
         "Bearer test-token"
       );

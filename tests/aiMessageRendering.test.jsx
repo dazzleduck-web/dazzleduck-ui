@@ -11,7 +11,6 @@ import {
   createConfirmationMessage,
   normalizeChatMessage,
 } from "../src/components/ai/util/chatMessageUtils.js";
-import { MAX_ROWS_PER_QUERY } from "../src/components/ai/tools/toolRegistry.js";
 
 vi.mock("../src/components/ai/util/ChatMessage.jsx", () => ({
   default: ({ message, variant = "default" }) => React.createElement(
@@ -26,7 +25,7 @@ vi.mock("../src/components/ai/util/ChatMessage.jsx", () => ({
 }));
 
 vi.mock("../src/components/ai/util/ResultVisualization.jsx", () => ({
-  default: ({ title, rows = [], metadata, showPopup, limitRows, showDisplaySelector, defaultRows }) => React.createElement(
+  default: ({ title, rows = [], metadata, showPopup, showDisplaySelector, defaultRows }) => React.createElement(
     "div",
     {
       "data-testid": "result-visualization",
@@ -34,7 +33,6 @@ vi.mock("../src/components/ai/util/ResultVisualization.jsx", () => ({
       "data-rows": String(rows.length),
       "data-metadata": JSON.stringify(metadata || {}),
       "data-show-popup": String(Boolean(showPopup)),
-      "data-limit-rows": String(limitRows),
       "data-show-display-selector": String(Boolean(showDisplaySelector)),
       "data-default-rows": String(defaultRows),
     },
@@ -177,64 +175,4 @@ describe("MessageRenderer", () => {
     expect(screen.getAllByTestId("result-visualization")[1]).toHaveAttribute("data-rows", "4");
   });
 
-  it("shows truncation messaging for bulk named-query results", () => {
-    render(
-      <MessageRenderer
-        showPopup={vi.fn()}
-        message={createQueryResultMessage({
-          content: "Executed 1 named query.",
-          result: {
-            rows: [
-              { queryName: "large_query", query_group: "dashboard", preferredDisplay: "table", success: true, rowCount: 12457 },
-            ],
-            metadata: {
-              preferredDisplay: "table",
-              bulkResultsData: {
-                total: 1,
-                queryGroup: "dashboard",
-                results: [
-                  {
-                    queryName: "large_query",
-                    query_group: "dashboard",
-                    preferredDisplay: "table",
-                    success: true,
-                    data: Array.from({ length: MAX_ROWS_PER_QUERY }, (_, index) => ({ id: index + 1 })),
-                    totalRowCount: 12457,
-                    truncated: true,
-                  },
-                ],
-                errors: [],
-              },
-            },
-            title: "All Named Query Results",
-            bulkResultsData: {
-              total: 1,
-              queryGroup: "dashboard",
-              results: [
-                {
-                  queryName: "large_query",
-                  query_group: "dashboard",
-                  preferredDisplay: "table",
-                  success: true,
-                  data: Array.from({ length: MAX_ROWS_PER_QUERY }, (_, index) => ({ id: index + 1 })),
-                  totalRowCount: 12457,
-                  truncated: true,
-                },
-              ],
-              errors: [],
-            },
-          },
-        })}
-      />
-    );
-
-    expect(screen.getByText((content, element) => {
-      return element?.className?.includes("border-amber-200")
-        && element?.textContent.includes(`Showing first ${MAX_ROWS_PER_QUERY.toLocaleString("en-US")}`)
-        && element?.textContent.includes("of")
-        && element?.textContent.includes("12,457")
-        && element?.textContent.includes("total rows");
-    })).toBeInTheDocument();
-    expect(screen.getByTestId("result-visualization")).toHaveAttribute("data-rows", String(MAX_ROWS_PER_QUERY));
-  });
 });

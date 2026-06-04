@@ -469,6 +469,7 @@ export const useGeminiChat = ({ showPopup } = {}) => {
       const errorMessage = getGeminiErrorMessage(error, "Failed to execute query");
       setError(errorMessage);
       setMessages((prev) => [...prev, createErrorMessage(errorMessage)]);
+      setPendingQuery(null);
     } finally {
       setPendingQueryLoading(false);
     }

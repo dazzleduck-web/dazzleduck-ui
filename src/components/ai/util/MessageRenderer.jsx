@@ -51,7 +51,6 @@ const MessageRenderer = ({ message, showPopup }) => {
               rows={rows}
               metadata={result.metadata || {}}
               showPopup={showPopup}
-              limitRows={50}
               showDisplaySelector={true}
               defaultRows={5}
             />

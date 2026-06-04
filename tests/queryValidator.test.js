@@ -3,8 +3,8 @@ import { normalizeReadOnlyQuery, validateReadOnlyQuery } from "../src/components
 
 describe("queryValidator", () => {
   describe("normalizeReadOnlyQuery", () => {
-    it("adds LIMIT 100 to read-only SELECT queries", () => {
-      expect(normalizeReadOnlyQuery("SELECT * FROM users")).toBe("SELECT * FROM users LIMIT 100");
+    it("normalizes read-only SELECT queries without adding LIMIT", () => {
+      expect(normalizeReadOnlyQuery("SELECT * FROM users")).toBe("SELECT * FROM users");
     });
 
     it("preserves an existing LIMIT clause", () => {

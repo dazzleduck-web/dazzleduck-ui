@@ -43,7 +43,6 @@ const ResultVisualization = ({
   rows = [],
   metadata = null,
   showPopup,
-  limitRows,
   showDisplaySelector = true,
   displayType,
   onDisplayTypeChange,
@@ -54,13 +53,6 @@ const ResultVisualization = ({
   );
 
   const safeRows = useMemo(() => (Array.isArray(rows) ? rows : []), [rows]);
-  const previewRows = useMemo(
-    () =>
-      typeof limitRows === "number" && limitRows > 0
-        ? safeRows.slice(0, limitRows)
-        : safeRows,
-    [limitRows, safeRows]
-  );
 
   const activeDisplayType = normalizeDisplayType(
     displayType ?? internalDisplayType ?? metadata?.preferredDisplay ?? "table"
@@ -79,8 +71,6 @@ const ResultVisualization = ({
 
   const effectiveDisplayType = activeDisplayType;
   const shouldShowTable = fallbackToTable || effectiveDisplayType === "table";
-  const hasPreviewLimit =
-    typeof limitRows === "number" && limitRows > 0 && safeRows.length > limitRows;
 
   const selector = showDisplaySelector ? (
     <DisplayTypeSelect value={effectiveDisplayType} onChange={handleDisplayChange} />
@@ -89,14 +79,9 @@ const ResultVisualization = ({
   if (shouldShowTable) {
     return (
       <div className="space-y-3">
-        {hasPreviewLimit && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-            Showing {previewRows.length} of {safeRows.length} rows
-          </div>
-        )}
         <DataTable
           title={title}
-          data={previewRows}
+          data={safeRows}
           defaultRows={defaultRows || 10}
           headerActions={selector}
         />

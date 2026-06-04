@@ -37,7 +37,7 @@ export const COMPACTION_KEEP_COUNT = 30;
  */
 export const MAX_TOOL_TURNS = 10;
 
-/**1
+/**
  * Per-Query Timeout: Maximum time (ms) to wait for a single named query to execute
  * If a query exceeds this time, it's treated as timed out and the bulk operation continues
  * 30 seconds is reasonable for most queries; very long-running queries should be identified

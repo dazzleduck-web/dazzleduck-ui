@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runTool, MAX_BULK_QUERIES, MAX_ROWS_PER_QUERY } from "../src/components/ai/tools/toolRegistry.js";
+import { runTool, MAX_BULK_QUERIES } from "../src/components/ai/tools/toolRegistry.js";
 
 const buildNamedQuery = (name, group = "default") => ({
   name,
@@ -23,10 +23,11 @@ describe("toolRegistry bulk named-query execution", () => {
     expect(executeNamedQuery).not.toHaveBeenCalled();
   });
 
-  it("truncates stored rows for large per-query result sets", async () => {
+  it("returns all rows for large per-query result sets", async () => {
+    const largeRowCount = 1057;
     const fetchNamedQueries = vi.fn(async () => [buildNamedQuery("large_query")]);
     const executeNamedQuery = vi.fn(async () => (
-      Array.from({ length: MAX_ROWS_PER_QUERY + 57 }, (_, index) => ({ id: index + 1 }))
+      Array.from({ length: largeRowCount }, (_, index) => ({ id: index + 1 }))
     ));
 
     const result = await runTool("executeAllNamedQueries", { confirmed: true }, {
@@ -42,13 +43,12 @@ describe("toolRegistry bulk named-query execution", () => {
     expect(result.results[0]).toMatchObject({
       queryName: "large_query",
       success: true,
-      totalRowCount: MAX_ROWS_PER_QUERY + 57,
-      truncated: true,
+      rowCount: largeRowCount,
     });
-    expect(result.results[0].data).toHaveLength(MAX_ROWS_PER_QUERY);
+    expect(result.results[0].data).toHaveLength(largeRowCount);
     expect(result.rows[0]).toMatchObject({
       queryName: "large_query",
-      rowCount: MAX_ROWS_PER_QUERY + 57,
+      rowCount: largeRowCount,
       success: true,
     });
   });
@@ -85,21 +85,17 @@ describe("toolRegistry bulk named-query execution", () => {
     expect(result.results[0]).toMatchObject({
       queryName: "first_query",
       success: true,
-      totalRowCount: 2,
-      truncated: false,
+      rowCount: 2,
     });
     expect(result.results[1]).toMatchObject({
       queryName: "second_query",
       success: false,
-      totalRowCount: 0,
-      truncated: false,
       error: "Second query failed",
     });
     expect(result.results[2]).toMatchObject({
       queryName: "third_query",
       success: true,
-      totalRowCount: 1,
-      truncated: false,
+      rowCount: 1,
     });
   });
 });

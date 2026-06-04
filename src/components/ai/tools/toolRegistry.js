@@ -9,7 +9,6 @@ import { QUERY_EXECUTION_TIMEOUT_MS } from "../config/aiConstants";
 const isDev = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV;
 
 export const MAX_BULK_QUERIES = 20;
-export const MAX_ROWS_PER_QUERY = 100;
 
 /**
  * Tool definitions that Gemini can call
@@ -302,16 +301,12 @@ async function executeAllNamedQueries(fetchNamedQueries, executeNamedQuery, serv
           : Array.isArray(executionResult?.rows)
             ? executionResult.rows
             : [];
-      const rowsForDisplay = rows.slice(0, MAX_ROWS_PER_QUERY);
-
       const detailedRow = {
         queryName: query.name,
         query_group: query.query_group || query.group || "default",
         preferredDisplay: query.preferred_display || "table",
         success: true,
-        data: rowsForDisplay,
-        totalRowCount: rows.length,
-        truncated: rows.length > MAX_ROWS_PER_QUERY,
+        data: rows,
         rowCount: rows.length,
       };
 

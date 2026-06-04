@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MAX_ROWS_PER_QUERY } from "../tools/toolRegistry";
 import ResultVisualization from "./ResultVisualization";
 
 const BulkNamedQueryResults = ({ bulkResultsData, showPopup, summaryText = "" }) => {
@@ -60,16 +59,6 @@ const BulkNamedQueryResults = ({ bulkResultsData, showPopup, summaryText = "" })
       {/* Individual query results — using ResultVisualization for identical rendering */}
       {summary.results.map((result, index) => (
         <div key={result.queryName || index} className="space-y-1.5">
-          {result.truncated ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-              Showing first {MAX_ROWS_PER_QUERY.toLocaleString("en-US")} of{" "}
-              {Number.isFinite(result.totalRowCount)
-                ? result.totalRowCount.toLocaleString("en-US")
-                : "0"}{" "}
-              total rows
-            </div>
-          ) : null}
-
           <ResultVisualization
             title={result.queryName || "Named Query"}
             rows={result.data || []}
