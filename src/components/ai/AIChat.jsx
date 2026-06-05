@@ -6,6 +6,7 @@ import MessageRenderer from "./util/MessageRenderer";
 import BulkNamedQueryResults from "./util/BulkNamedQueryResults";
 import ResultVisualization from "./util/ResultVisualization";
 import SQLPreviewModal from "./util/SQLPreviewModal";
+import SuggestedPrompts from "./util/SuggestedPrompts";
 import AIConfigPanel from "./page/AIConfigPanel";
 import AIErrorBoundary from "./page/AIErrorBoundary";
 import ConfigErrorBoundary from "./page/ConfigErrorBoundary";
@@ -83,6 +84,14 @@ const AIChat = ({ showPopup } = {}) => {
       event.preventDefault();
       handleSend();
     }
+  };
+
+  const handleSuggestedPrompt = (prompt) => {
+    setInput(prompt);
+    setTimeout(() => {
+      const textarea = document.querySelector("textarea");
+      if (textarea) textarea.focus();
+    }, 0);
   };
 
   const clearConversation = () => {
@@ -184,6 +193,14 @@ const AIChat = ({ showPopup } = {}) => {
                 aria-live="polite"
                 aria-label="Chat messages"
               >
+                {geminiChat.messages.length <= 1 && (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="w-full max-w-2xl px-4">
+                      <SuggestedPrompts onPromptSelect={handleSuggestedPrompt} />
+                    </div>
+                  </div>
+                )}
+
                 {geminiChat.messages.map((message, index) => (
                   <MessageRenderer
                     key={message.id || `${message.role}-${index}`}

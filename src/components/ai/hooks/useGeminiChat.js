@@ -15,11 +15,10 @@ import {
   toGeminiHistory,
   extractFunctionCalls,
   extractResponseText,
-  runDirectIntent,
   normalizeMessage,
   buildPendingAction,
   buildToolCallRecord,
-} from "../gemini/intents";
+} from "../gemini/geminiUtils";
 import { getGeminiErrorMessage } from "../../../services/geminiErrors";
 import { toolDefinitions } from "../tools/toolRegistry";
 import { useChatPersistence } from "./useChatPersistence";
@@ -129,33 +128,6 @@ export const useGeminiChat = ({ showPopup } = {}) => {
     setMessages((prev) => [...prev, userMessageObj]);
 
     try {
-      // Try direct intent routing first
-      const directResponse = await runDirectIntent(normalizedMessage, callTool);
-
-      if (directResponse) {
-        // Direct intent handled successfully
-        const directToolName = directResponse.toolCalls?.[0]?.name || null;
-        const directResultRows = extractResultRows(directToolName, directResponse, directResponse.results);
-        const directResultMetadata = getResultMetadata(directToolName, directResponse, { preferredDisplay: "table" });
-
-        setMessages((prev) => ([
-          ...prev,
-          createTextMessage("assistant", directResponse.reply, directResponse.toolCalls || []),
-        ]));
-
-        if (directResultRows.length > 0) {
-          setResultRows(directResultRows);
-          setResultMetadata(directResultMetadata);
-        }
-
-        if (directResponse.pendingQuery) {
-          setPendingQuery(directResponse.pendingQuery);
-        }
-
-        return;
-      }
-
-      // Fall back to Gemini for complex requests
       const toolConfig = {
         functionCallingConfig: {
           mode: FunctionCallingMode.AUTO,
