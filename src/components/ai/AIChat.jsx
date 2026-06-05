@@ -73,10 +73,12 @@ const AIChat = ({ showPopup } = {}) => {
 
   const handleConfirmQuery = async () => {
     await geminiChat.confirmQuery();
+    setTimeout(() => document.querySelector("textarea")?.focus(), 0);
   };
 
   const handleCancelQuery = () => {
     geminiChat.cancelQuery();
+    setTimeout(() => document.querySelector("textarea")?.focus(), 0);
   };
 
   const handleKeyDown = (event) => {
