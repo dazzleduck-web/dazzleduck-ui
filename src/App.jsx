@@ -6,10 +6,10 @@ function App() {
   return (
     <div>
       <Router>
-      <Navbar />
+        <Navbar />
         <Routes>
-            <Route path="/" element={<QueryDashboard />} />
-            <Route path="/search" element={<QueryDashboard />} />
+          <Route path="/" element={<QueryDashboard />} />
+          <Route path="/search" element={<QueryDashboard />} />
         </Routes>
       </Router>
     </div>

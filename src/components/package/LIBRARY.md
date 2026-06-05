@@ -100,7 +100,7 @@ import { DazzleduckUI } from 'dazzleduck-arrow-ui';
 
 ### 1. Search Mode (`tab="search"`)
 
-Interactive table with client-side search, pagination, and detailed row expansion.
+DataTable-powered search results with client-side filtering, pagination, and detailed row expansion.
 
 ```jsx
 <DazzleduckUI
@@ -120,6 +120,7 @@ Interactive table with client-side search, pagination, and detailed row expansio
 - Pagination (5, 10, 20, 50, 100 rows per page)
 - Row expansion with JSON detail view
 - Field sidebar for column selection
+- Built on the shared `DataTable` component used across the library
 
 ### 2. Analytics Mode (`tab="analytics"`)
 
@@ -513,7 +514,7 @@ import { QueryDashboardProvider, DazzleduckUI } from 'dazzleduck-arrow-ui';
 **A:** The component will show an error. You'll need to refresh the JWT and remount the component.
 
 ### Q: Can I customize the search timeout?
-**A:** Currently fixed at 300ms for optimal performance. This may be configurable in future versions.
+**A:** Currently fixed at 300ms for optimal performance. Search mode uses the shared `DataTable` wrapper and its built-in debounced filtering flow.
 
 ### Q: Does it support server-side pagination?
 **A:** Currently client-side pagination only. Server-side pagination would require backend changes.

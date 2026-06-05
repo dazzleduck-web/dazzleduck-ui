@@ -99,80 +99,75 @@ export const QueryDashboardProvider = ({ children }) => {
 
     // --- Login ---
     const login = async (serverUrl, username, password, splitSize, claims) => {
-        try {
-            const response = await axios.post(`${serverUrl.trim()}/v1/login`, {
-                username,
-                password,
-                claims: claims,
-            });
-            const jwt = `${response.data.tokenType} ${response.data.accessToken}`;
-
-            // Update both ref and cookie synchronously so immediate follow-up requests
-            // cannot keep using a stale in-memory token from the previous session.
-            persistJwtToken(jwt);
-
-            // Save connection info (without password for security in cookies)
-            const connInfo = {
-                serverUrl: serverUrl.trim(),
-                username,
-                claims,
-                splitSize, // Default, will be updated when executing queries
-                loginTime: new Date().toISOString()
-            };
-
-            Cookies.set("connectionInfo", JSON.stringify(connInfo), { path: "/" });
-
-            setConnectionInfo(connInfo);
-
-            return jwt;
-        } catch (err) {
+        const response = await axios.post(`${serverUrl.trim()}/v1/login`, {
+            username,
+            password,
+            claims: claims,
+        }).catch((err) => {
             if (err.response) {
                 const code = err.response.status;
                 const text = err.response.statusText || "Upstream server error";
                 throw new Error(`Failed with response ${code} ${text}`);
             }
             throw err;
-        }
+        });
+
+        const jwt = `${response.data.tokenType} ${response.data.accessToken}`;
+
+        // Update both ref and cookie synchronously so immediate follow-up requests
+        // cannot keep using a stale in-memory token from the previous session.
+        persistJwtToken(jwt);
+
+        // Save connection info (without password for security in cookies)
+        const connInfo = {
+            serverUrl: serverUrl.trim(),
+            username,
+            claims,
+            splitSize, // Default, will be updated when executing queries
+            loginTime: new Date().toISOString()
+        };
+
+        Cookies.set("connectionInfo", JSON.stringify(connInfo), { path: "/" });
+
+        setConnectionInfo(connInfo);
+
+        return jwt;
     };
 
     // --- Login with JWT (direct token authentication) ---
     const loginWithJwt = async (serverUrl, jwt, splitSize, username = "jwt_user") => {
-        try {
-            const trimmedJwt = jwt.trim();
+        const trimmedJwt = jwt.trim();
 
-            // Validate JWT format (basic check)
-            if (!trimmedJwt) {
-                throw new Error("JWT token is required");
-            }
-
-            // Check if JWT already has "Bearer" prefix, if not add it
-            const formattedJwt = trimmedJwt.startsWith("Bearer ") ? trimmedJwt : `Bearer ${trimmedJwt}`;
-
-            // Optionally, validate the token by making a test query or using a validation endpoint
-            // For now, we'll just store the token and connection info
-
-            // Update both ref and cookie synchronously so immediate follow-up requests
-            // cannot keep using a stale in-memory token from the previous session.
-            persistJwtToken(formattedJwt);
-
-            // Save connection info (minimal, since we only have URL and JWT)
-            const connInfo = {
-                serverUrl: serverUrl.trim(),
-                username,
-                claims: {},
-                splitSize,
-                loginTime: new Date().toISOString(),
-                jwtMode: true // Flag to indicate this was a JWT login
-            };
-
-            Cookies.set("connectionInfo", JSON.stringify(connInfo), { path: "/" });
-
-            setConnectionInfo(connInfo);
-
-            return formattedJwt;
-        } catch (err) {
-            throw err;
+        // Validate JWT format (basic check)
+        if (!trimmedJwt) {
+            throw new Error("JWT token is required");
         }
+
+        // Check if JWT already has "Bearer" prefix, if not add it
+        const formattedJwt = trimmedJwt.startsWith("Bearer ") ? trimmedJwt : `Bearer ${trimmedJwt}`;
+
+        // Optionally, validate the token by making a test query or using a validation endpoint
+        // For now, we'll just store the token and connection info
+
+        // Update both ref and cookie synchronously so immediate follow-up requests
+        // cannot keep using a stale in-memory token from the previous session.
+        persistJwtToken(formattedJwt);
+
+        // Save connection info (minimal, since we only have URL and JWT)
+        const connInfo = {
+            serverUrl: serverUrl.trim(),
+            username,
+            claims: {},
+            splitSize,
+            loginTime: new Date().toISOString(),
+            jwtMode: true // Flag to indicate this was a JWT login
+        };
+
+        Cookies.set("connectionInfo", JSON.stringify(connInfo), { path: "/" });
+
+        setConnectionInfo(connInfo);
+
+        return formattedJwt;
     };
 
     // --- Logout ---
@@ -228,44 +223,40 @@ export const QueryDashboardProvider = ({ children }) => {
             requestBody = queryId !== null ? { ...query, id: queryId } : query;
         }
 
-        try {
-            const response = await axios.post(
-                serverUrl,
-                requestBody,
-                {
-                    responseType: "arraybuffer",
-                    headers,
-                    timeout: FIVE_MINUTES_MS,
-                    maxContentLength: 50 * 1024 * 1024,
-                }
-            );
-
-            const contentType = (response.headers["content-type"] || "").toLowerCase();
-            let buffer;
-
-            if (response.data instanceof ArrayBuffer) {
-                buffer = new Uint8Array(response.data);
-            } else if (ArrayBuffer.isView(response.data)) {
-                buffer = new Uint8Array(response.data.buffer);
-            } else if (typeof response.data === "string") {
-                buffer = new TextEncoder().encode(response.data);
-            } else {
-                throw new Error("Unexpected response data type");
+        const response = await axios.post(
+            serverUrl,
+            requestBody,
+            {
+                responseType: "arraybuffer",
+                headers,
+                timeout: FIVE_MINUTES_MS,
+                maxContentLength: 50 * 1024 * 1024,
             }
+        );
 
-            const safeBuffer = buffer.slice(0);
+        const contentType = (response.headers["content-type"] || "").toLowerCase();
+        let buffer;
 
-            if (contentType.includes("application/json") || looksLikeJson(safeBuffer)) {
-                const jsonText = new TextDecoder("utf-8").decode(safeBuffer);
-                const parsed = JSON.parse(jsonText);
-                return { type: "json", data: parsed };
-            }
-
-            const base64 = btoa(String.fromCharCode(...safeBuffer));
-            return { type: "binary", contentType, base64 };
-        } catch (err) {
-            throw err;
+        if (response.data instanceof ArrayBuffer) {
+            buffer = new Uint8Array(response.data);
+        } else if (ArrayBuffer.isView(response.data)) {
+            buffer = new Uint8Array(response.data.buffer);
+        } else if (typeof response.data === "string") {
+            buffer = new TextEncoder().encode(response.data);
+        } else {
+            throw new Error("Unexpected response data type");
         }
+
+        const safeBuffer = buffer.slice(0);
+
+        if (contentType.includes("application/json") || looksLikeJson(safeBuffer)) {
+            const jsonText = new TextDecoder("utf-8").decode(safeBuffer);
+            const parsed = JSON.parse(jsonText);
+            return { type: "json", data: parsed };
+        }
+
+        const base64 = btoa(String.fromCharCode(...safeBuffer));
+        return { type: "binary", contentType, base64 };
     };
 
     // --- Execute Query ---
@@ -482,7 +473,7 @@ export const QueryDashboardProvider = ({ children }) => {
      * GET /v1/named-query?offset={offset}&limit={limit}
      * Note: Group filtering is now done client-side
      */
-    const fetchNamedQueries = useCallback(async (serverUrl, offset = 0, limit = 20, group = null) => {
+    const fetchNamedQueries = useCallback(async (serverUrl, offset = 0, limit = 20) => {
         if (!serverUrl?.trim()) {
             throw new Error("Server URL is required");
         }
@@ -604,7 +595,7 @@ export const QueryDashboardProvider = ({ children }) => {
 
             const response = await axios(config);
 
-            // Handle Arrow format (backend default)
+            // Handle Arrow format (server default)
             if (response.data instanceof ArrayBuffer) {
                 const buffer = new Uint8Array(response.data);
                 const base64 = btoa(String.fromCharCode(...buffer));
@@ -758,6 +749,7 @@ export const QueryDashboardProvider = ({ children }) => {
                 getNamedQuery,
                 executeNamedQuery,
                 connectionInfo,
+                jwtToken,
             }}>
             {children}
         </QueryDashboardContext.Provider>

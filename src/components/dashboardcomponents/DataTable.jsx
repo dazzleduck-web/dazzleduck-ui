@@ -187,13 +187,13 @@ const DataTable = ({
         <div className="mx-2 rounded-xl shadow-md border border-slate-200 overflow-hidden font-sans">
 
             {/* ── Card Header ── */}
-            <div className="flex justify-between items-center px-4 py-3 border-b border-gray-700 bg-gray-700">
-                <div className="flex items-center gap-2">
-                    <span className="text-base font-bold text-slate-100 tracking-tight">{title}</span>
+            <div className="flex justify-between items-center px-4 py-3 border-b border-slate-800 bg-slate-900">
+                <div>
+                    <h3 className="text-sm font-semibold text-white">{title}</h3>
                     {subtitle && (
-                        <span className="text-xs text-slate-400 font-normal">
-                            ({subtitle})
-                        </span>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            {subtitle}
+                        </p>
                     )}
                 </div>
                 <div className="flex items-center gap-2">

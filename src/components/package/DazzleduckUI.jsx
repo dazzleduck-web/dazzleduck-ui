@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useQueryDashboard } from "../../context/QueryDashboardContext";
 import QueryResults from "../dashboardcomponents/QueryResults";
-import SearchTable from "../dashboardcomponents/SearchTable";
+import DataTable from "../dashboardcomponents/DataTable";
 import DisplayCharts from "../DisplayCharts";
 import { substituteVariables } from "../../hooks/useQueryManagement";
 import { validateRequiredProps, validateTab } from "./utils/validateProps.jsx";
 import { ValidationError, LoadingComponent, ErrorComponent } from "./utils/uiComponents.jsx";
+import { BsSearch } from "react-icons/bs";
 
 /**
  * Initialize and fetch data for the DazzleduckUI component
@@ -183,14 +184,37 @@ const DazzleduckUI = ({ tab, jwt, config, view = "table", width, height }) => {
     switch (tab) {
         case "search":
             return (
-                <SearchTable
+                <DataTable
                     title="Search Results"
                     data={filteredSearchData}
                     loading={false}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    onSearch={() => {}}
                     error={searchError}
+                    headerSlot={
+                        <div className="bg-white border-b border-gray-300 shadow-md p-3 sm:p-4 md:p-6 flex flex-col items-center gap-3">
+                            <div className="flex w-full sm:w-[90%] md:w-[80%] border border-gray-400 rounded-md p-1 font-mono shadow-sm">
+                                <input
+                                    type="search"
+                                    value={searchQuery}
+                                    onChange={(event) => setSearchQuery(event.target.value)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter") {
+                                            setDebouncedSearchQuery(searchQuery);
+                                        }
+                                    }}
+                                    placeholder="Search results..."
+                                    className="flex-1 p-1 sm:p-2 outline-none px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setDebouncedSearchQuery(searchQuery)}
+                                    className="px-3 sm:px-5 py-1 sm:py-2 border-l border-gray-400 hover:bg-gray-100"
+                                    aria-label="Search results"
+                                >
+                                    <BsSearch className="text-base sm:text-xl" />
+                                </button>
+                            </div>
+                        </div>
+                    }
                 />
             );
 

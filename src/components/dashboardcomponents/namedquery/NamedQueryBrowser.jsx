@@ -219,6 +219,7 @@ const NamedQueryBrowser = ({ namedQuery, showPopup, isConnected }) => {
                         preferredDisplay={resultQueryMeta.preferred_display || "table"}
                         currentDisplay={displayOverrides[resultQueryMeta.name]}
                         onDisplayChange={(type) => handleDisplayChange(resultQueryMeta.name, type)}
+                        showPopup={showPopup}
                     />
                     <div className="mt-2 flex justify-end">
                         <button
@@ -264,6 +265,7 @@ const NamedQueryBrowser = ({ namedQuery, showPopup, isConnected }) => {
                     displayOverrides={displayOverrides}
                     onDisplayChange={handleDisplayChange}
                     onClear={() => { setShowBulkResults(false); setBulkResultsData(null); }}
+                    showPopup={showPopup}
                 />
             )}
 

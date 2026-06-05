@@ -43,16 +43,6 @@ export default defineConfig({
     emptyOutDir: true,
     // Production build optimizations
     chunkSizeWarningLimit: 1000,
-    minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          router: ['react-router-dom'],
-          charts: ['d3'],
-          utils: ['js-cookie', 'uuid']
-        }
-      }
-    }
+    minify: 'esbuild'
   },
 });

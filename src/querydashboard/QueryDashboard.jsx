@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { HiOutlineArrowUp, HiOutlineArrowDown } from "react-icons/hi";
 import { BsSearch } from "react-icons/bs";
 import "../App.css";
@@ -12,6 +12,7 @@ import QueryRow from "../components/dashboardcomponents/QueryRow";
 import PopupMessage from "../components/utils/PopupMessage";
 import DataTable from "../components/dashboardcomponents/DataTable";
 import NamedQueryBrowser from "../components/dashboardcomponents/namedquery/NamedQueryBrowser";
+import AIChat from "../components/ai/AIChat";
 
 const QueryDashboard = () => {
     const {
@@ -27,10 +28,19 @@ const QueryDashboard = () => {
         connectionInfo,
     } = useQueryDashboard();
 
-    const [activeTab, setActiveTab] = useState("analytics"); // "analytics" | "search" | "named"
+    const [activeTab, setActiveTab] = useState("analytics"); // "analytics" | "search" | "ai" | "named"
 
-    const [popup, setPopup] = useState({ message: "", type: "", visible: false });
-    const showPopup = (message, type = "success") => setPopup({ message, type, visible: true });
+    const [popupQueue, setPopupQueue] = useState([]);
+
+    const showPopup = useCallback((message, type = "success") => {
+        setPopupQueue((queue) => [...queue, { message, type, visible: true }]);
+    }, []);
+
+    const handlePopupClose = useCallback(() => {
+        setPopupQueue((queue) => queue.slice(1));
+    }, []);
+
+    const activePopup = popupQueue[0] || { message: "", type: "success", visible: false };
 
     const [showConnection, setShowConnection] = useState(true);
 
@@ -110,6 +120,7 @@ const QueryDashboard = () => {
                 {[
                     { id: "analytics", label: "Analytics" },
                     { id: "search",    label: "Search" },
+                    { id: "ai",        label: "AI Assistant" },
                     { id: "named",     label: "Named Queries" },
                 ].map(({ id, label }) => (
                     <button
@@ -202,6 +213,11 @@ const QueryDashboard = () => {
                 />
             )}
 
+            {/* AI Tab */}
+            {activeTab === "ai" && (
+                <AIChat showPopup={showPopup} />
+            )}
+
             {/* Named Queries Tab */}
             {activeTab === "named" && (
                 <div className="bg-white rounded-md shadow-xl mx-2 sm:mx-4 md:mx-10">
@@ -231,10 +247,10 @@ const QueryDashboard = () => {
             </div>
 
             <PopupMessage
-                message={popup.message}
-                type={popup.type}
-                visible={popup.visible}
-                onClose={() => setPopup({ message: "", type: "", visible: false })}
+                message={activePopup.message}
+                type={activePopup.type}
+                visible={activePopup.visible}
+                onClose={handlePopupClose}
             />
         </div>
     );
