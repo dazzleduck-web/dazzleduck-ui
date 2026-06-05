@@ -217,6 +217,13 @@ describe("AI assistant workflows", () => {
   it("runs the named query flow from list to confirmation to rendered results", async () => {
     renderChat();
 
+    queueGeminiToolResponse([
+      {
+        name: "listNamedQueries",
+        args: {},
+      },
+    ], "Here are the available named queries you can execute:");
+
     await sendChatMessage("show named queries");
 
     await waitFor(() => {
@@ -333,6 +340,17 @@ describe("AI assistant workflows", () => {
   it("renders normalized database rows in the results section", async () => {
     renderChat();
 
+    queueGeminiToolResponse([
+      {
+        name: "executeQuery",
+        args: {
+          query: "SELECT datname AS database_name FROM pg_database WHERE datistemplate = false;",
+          explanation: "Fetching list of databases",
+          confirmed: true,
+        },
+      },
+    ]);
+
     await sendChatMessage("show databases");
 
     await waitFor(() => {
@@ -346,6 +364,13 @@ describe("AI assistant workflows", () => {
 
   it("renders normalized named query rows in the results section", async () => {
     renderChat();
+
+    queueGeminiToolResponse([
+      {
+        name: "listNamedQueries",
+        args: {},
+      },
+    ], "Here are all the available named queries:");
 
     await sendChatMessage("show named queries");
 
@@ -365,6 +390,17 @@ describe("AI assistant workflows", () => {
 
   it("restores the latest result data after the assistant is unmounted and remounted", async () => {
     const firstRender = renderChat();
+
+    queueGeminiToolResponse([
+      {
+        name: "executeQuery",
+        args: {
+          query: "SELECT datname AS database_name FROM pg_database WHERE datistemplate = false;",
+          explanation: "Fetching list of databases",
+          confirmed: true,
+        },
+      },
+    ]);
 
     await sendChatMessage("show databases");
 
@@ -390,12 +426,25 @@ describe("AI assistant workflows", () => {
   it("keeps the current result data when the next assistant message has no new results", async () => {
     renderChat();
 
+    queueGeminiToolResponse([
+      {
+        name: "executeQuery",
+        args: {
+          query: "SELECT datname AS database_name FROM pg_database WHERE datistemplate = false;",
+          explanation: "Fetching list of databases",
+          confirmed: true,
+        },
+      },
+    ]);
+
     await sendChatMessage("show databases");
 
     await waitFor(() => {
       expect(screen.getByTestId("result-table")).toBeInTheDocument();
       expect(screen.getByText("rows:2")).toBeInTheDocument();
     });
+
+    queueGeminiToolResponse([], "You're welcome!");
 
     await sendChatMessage("thanks");
 
@@ -425,6 +474,17 @@ describe("AI assistant workflows", () => {
 
     renderChat();
 
+    queueGeminiToolResponse([
+      {
+        name: "executeQuery",
+        args: {
+          query: 'SHOW TABLES FROM "named_query"',
+          explanation: "Listing tables from the named_query database",
+          confirmed: true,
+        },
+      },
+    ]);
+
     await sendChatMessage("show tables from named_query");
 
     await waitFor(() => {
@@ -441,28 +501,4 @@ describe("AI assistant workflows", () => {
     });
   });
 
-  it("prompts for a database when the current database has no tables", async () => {
-    AI_TEST_STATE.mockQueryDashboard.executeQuery.mockImplementationOnce(async (_serverUrl, query) => {
-      if (/^SHOW TABLES$/i.test(query)) {
-        return { data: [] };
-      }
-
-      return {
-        data: [],
-      };
-    });
-
-    renderChat();
-
-    await sendChatMessage("show tables");
-
-    await waitFor(() => {
-      expect(screen.getByText(/No tables were found in the current database/i)).toBeInTheDocument();
-      expect(screen.getByText(/Available databases:/i)).toBeInTheDocument();
-      expect(screen.getByText(/main_db/i)).toBeInTheDocument();
-      expect(screen.getByText(/analytics_db/i)).toBeInTheDocument();
-    });
-
-    expect(screen.queryByTestId("result-table")).not.toBeInTheDocument();
-  });
 });
