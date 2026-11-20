@@ -166,15 +166,19 @@ Behaviour:
 
 ### 6.3 Key storage — session-based, one key per browser (decided 2026-11-19)
 
-- **Storage:** `sessionStorage`. The key survives a page reload and is gone when the tab or browser
-  closes. Nothing is written to disk-persistent storage.
+- **Storage (changed 2026-11-20): memory only.** The key is never written to any browser storage.
+  It belongs to the connection: a reload resets the DazzleDuck connection, so it resets the key too,
+  and the user enters it again before connecting. Provider, model and base URL are remembered in
+  `sessionStorage` for the tab. (Before, the key survived a reload in `sessionStorage`, so after a
+  reload the status said "AI on" while the user was disconnected and the key field looked empty.)
 - **Scope:** one key per browser, the same for every DazzleDuck connection and server (not tied to
   the connection).
-- **Per tab (decided, Q15):** `sessionStorage` is per tab. A new tab starts without the key and the
-  user enters it again in Connection Settings. No sharing between tabs, nothing in `localStorage`.
+- **Per tab (decided, Q15):** a new tab (or a reload) starts without the key; the user enters it again
+  in Connection Settings. No sharing between tabs, nothing in `localStorage`.
 - **No "Test key" request.** No tokens are spent on validation. A bad key surfaces on the first
   question as an "AI configuration error". Key verification will follow a separate plan (§6.4).
-- **Clearing:** logout removes it from memory and `sessionStorage`; closing the tab drops it.
+- **Clearing:** the key is dropped whenever the connection ends (Logout or an automatic logout), on
+  reload, and when the tab closes.
 
 Firm rules:
 - the key is **never** put in cookies (cookies are sent to servers);
@@ -212,7 +216,7 @@ best design therefore **shrinks the ways it can leak** and **limits the damage i
 | T6 | Key abused after leaking | Someone else spends the user's quota | Limit damage: provider-side restrictions and spend caps |
 
 #### Layer 1: Keep it out of places it shouldn't be (T2), must-have
-- Stored only in `sessionStorage`. Never in cookies, `localStorage`, URLs, Save Session files or the
+- Kept only in memory (never in any browser storage). Never in cookies, `localStorage`, URLs, Save Session files or the
   DazzleDuck server request (§6.3).
 - Sent only in the provider's auth header (`x-goog-api-key`, `x-api-key`, `Authorization: Bearer`).
   Never as a URL query parameter.
@@ -265,7 +269,7 @@ best design therefore **shrinks the ways it can leak** and **limits the damage i
     shows a warning and the key field stays disabled until the user confirms;
   - an OpenAI-compatible base URL must be `https://`, except `localhost`;
   - `Referrer-Policy: no-referrer` header.
-- **The key is cleared** on DazzleDuck logout or when the tab closes (`sessionStorage`) (Q17).
+- **The key is cleared** when the DazzleDuck connection ends, on reload, or when the tab closes (Q17).
   No idle timer (Q18).
 
 #### Layer 4: Limit damage if it leaks (T6), guidance shown to the user
@@ -472,7 +476,7 @@ Changes to existing code:
 - **`AiContext.jsx`:**
   - settings come from user input, not `main.jsx` env values;
   - exposes `settings`, `setSettings`, `clearKey()`;
-  - keeps the key in `sessionStorage` (per tab) and hands it only to the provider adapter;
+  - keeps the key in memory only and hands it only to the provider adapter;
   - "enabled" means a key is set.
 - **`main.jsx`:** passes only the `VITE_AI_ENABLED` feature flag.
 - **`useSessionManagement` / `saveSession`:** may save provider + model, **never the key**.
@@ -502,7 +506,7 @@ Changes to existing code:
   - detector, gate, schema, prompts, pipeline, hook (built: 49 tests);
   - new: each adapter with a mocked fetch/SDK (request shape, key header, JSON extraction, error
     mapping), the registry, the settings section (no key → AI off, provider switch updates the
-    default model, base URL only for compatible), key kept in `sessionStorage` only, locked while
+    default model, base URL only for compatible), key kept in memory only (never stored), locked while
     connected, never in session save output or cookies.
 - **Live (opt-in):** `tests/ai/live.e2e.test.js` (built for Gemini, 6/6 passing), extended with one
   case per provider when a key for it is available.
@@ -522,7 +526,7 @@ Built and tested with the v2 design (Gemini key from `.env.local`):
 v3 changes the **configuration and provider** layers only; the pipeline stays.
 
 **Phase 4 implemented (2026-11-19):**
-- `src/ai/aiSettings.js`: settings in `sessionStorage` per tab, provider switching, base-URL and
+- `src/ai/aiSettings.js`: provider/model/base URL in `sessionStorage` per tab (never the key), provider switching, base-URL and
   HTTPS checks.
 - `src/ai/providers/registry.js`: four providers, adapters loaded on demand.
 - Adapters:
@@ -555,7 +559,7 @@ v3 changes the **configuration and provider** layers only; the pipeline stays.
 3. **OpenAI-compatible:** a CORS check on one or two common services and on local Ollama.
 
 ### Phase 4 — Bring-your-own-key
-- `AiSettingsSection` in Connection Settings; key in `sessionStorage` (per tab);
+- `AiSettingsSection` in Connection Settings; key in memory only;
 - security layers 1–3 from §6.5 (redaction, input attributes, CSP + headers in `serve.json`,
   HTTPS checks) and the layer-4 guidance text;
 - provider registry; Claude and OpenAI/compatible adapters;
@@ -602,14 +606,14 @@ values for filters (changes the names-only rule, needs a decision), Chrome built
 | Q7 | Scope of v1 | Keep it simple and evolve; npm library unchanged |
 | Q9 | Provider choice | **Yes (2026-11-19)**: Gemini, Claude, OpenAI, OpenAI-compatible |
 | Q10 | Hint for users without a key | **Yes (2026-11-19)** |
-| Q11 | Key storage | **Session-based (`sessionStorage`) (2026-11-19)**; nothing persisted beyond the session |
+| Q11 | Key storage | **Session-based (2026-11-19); memory only since 2026-11-20** (a reload resets the key with the connection); provider/model in `sessionStorage` |
 | Q12 | "Test key" request | **No (2026-11-19)**: no tokens spent on validation; verification follows a separate plan (§6.4) |
 | Q13 | Key scope | **One key per browser (2026-11-19)**, independent of the DazzleDuck connection |
 | Q8 | Defaults | **Gemini + `gemini-3.1-flash-lite` (2026-11-19)**, user-changeable; no build-time pre-selection |
 | Q15 | New tabs | **Session-only, per tab (2026-11-19)**: a new tab re-enters the key; no sharing between tabs |
 
 | Q14 | Security design | **Approved (2026-11-19):** layers 1–4 in §6.5 |
-| Q17 | When is the key cleared? | **On DazzleDuck logout or on tab close (`sessionStorage`) (2026-11-19). The Clear key button was removed (2026-11-20).** |
+| Q17 | When is the key cleared? | **When the connection ends (logout, automatic logout), on reload, or on tab close. The Clear key button was removed (2026-11-20).** |
 | Q18 | Auto-clear after idle time | **No (2026-11-19)**: not needed; logout and tab close cover it |
 | Q19 | CSP `connect-src` | **`'self' http: https:` by default (2026-11-20; the localhost-only http default blocked LAN servers)**; the deployer narrows it in `serve.json` to their own server(s) |
 

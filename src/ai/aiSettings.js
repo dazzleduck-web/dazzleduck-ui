@@ -1,9 +1,11 @@
 /**
  * The user's AI settings (bring-your-own-key).
  *
- * Stored ONLY in this tab's sessionStorage: survives a reload, gone when the tab
- * closes, never in localStorage, cookies, session files or requests to the
- * DazzleDuck server. A new tab starts without a key.
+ * Provider, model and base URL are kept in this tab's sessionStorage (they survive
+ * a reload). The API KEY IS NEVER STORED: it lives only in memory, like the
+ * DazzleDuck connection it belongs to, so a reload, logout or closed tab drops it
+ * and the user enters it again before connecting. Nothing goes to localStorage,
+ * cookies, session files or the DazzleDuck server.
  */
 import { PROVIDERS, DEFAULT_PROVIDER } from "./providers/registry";
 
@@ -35,18 +37,21 @@ const sanitize = (raw) => {
     };
 };
 
+/** Stored settings, always without a key (the key never survives a reload). */
 export function loadAiSettings(storage = sessionStore()) {
     try {
         const raw = storage?.getItem(STORAGE_KEY);
-        return raw ? sanitize(JSON.parse(raw)) : { ...DEFAULT_SETTINGS };
+        return raw ? { ...sanitize(JSON.parse(raw)), apiKey: "" } : { ...DEFAULT_SETTINGS };
     } catch {
         return { ...DEFAULT_SETTINGS };
     }
 }
 
+/** Store provider, model and base URL; the key is left out. */
 export function saveAiSettings(settings, storage = sessionStore()) {
     try {
-        storage?.setItem(STORAGE_KEY, JSON.stringify(sanitize(settings)));
+        const { apiKey: _omit, ...rest } = sanitize(settings);
+        storage?.setItem(STORAGE_KEY, JSON.stringify(rest));
     } catch {
         /* storage full or blocked: settings still work for this page view */
     }

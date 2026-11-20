@@ -177,14 +177,14 @@ const AiSettingsSection = ({ isConnected = false }) => {
                                 type={showKey ? "text" : "password"}
                                 value={keyDraft}
                                 onChange={(e) => onKeyChange(e.target.value)}
-                                placeholder={hasKey && !keyDraft ? "Key set for this tab" : def.keyPlaceholder}
+                                placeholder={def.keyPlaceholder}
                                 disabled={keyLocked}
                                 autoComplete="off"
                                 spellCheck={false}
                                 data-lpignore="true"
                                 data-1p-ignore="true"
                                 data-bwignore="true"
-                                title={`Kept only in this tab, cleared on logout. Only questions and table/column names are sent to ${def.label}, never query results.`}
+                                title={`Kept only in memory: cleared on logout or reload. Only questions and table/column names are sent to ${def.label}, never query results.`}
                                 className={`${inputClass} pr-8 font-mono`}
                             />
                             <button

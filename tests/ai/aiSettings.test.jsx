@@ -25,12 +25,18 @@ describe("aiSettings store", () => {
         expect(settingsProblem(DEFAULT_SETTINGS)).toBe("no_key");
     });
 
-    it("keeps settings in sessionStorage only", () => {
-        saveAiSettings({ ...DEFAULT_SETTINGS, apiKey: KEY });
-        expect(sessionStorage.getItem(STORAGE_KEY)).toContain(KEY);
-        expect(loadAiSettings().apiKey).toBe(KEY);
+    it("stores provider, model and base URL for the tab, but never the key", () => {
+        saveAiSettings({ ...DEFAULT_SETTINGS, model: "gemini-3.5-flash-lite", apiKey: KEY });
+        expect(sessionStorage.getItem(STORAGE_KEY)).toContain("gemini-3.5-flash-lite");
+        expect(sessionStorage.getItem(STORAGE_KEY)).not.toContain(KEY);
+        expect(loadAiSettings()).toMatchObject({ model: "gemini-3.5-flash-lite", apiKey: "" });
         expect(JSON.stringify({ ...localStorage })).not.toContain(KEY);
         expect(document.cookie).not.toContain(KEY);
+    });
+
+    it("ignores a key left in storage by an older version", () => {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, apiKey: KEY }));
+        expect(loadAiSettings().apiKey).toBe("");
     });
 
     it("survives broken or blocked storage", () => {
@@ -111,7 +117,7 @@ describe("AI Assistant section in Connection Settings", () => {
         // The rest of the app sees hasKey, never the key itself
         expect(probe()).toMatchObject({ enabled: true, settings: { hasKey: true } });
         expect(screen.getByTestId("probe").textContent).not.toContain(KEY);
-        expect(sessionStorage.getItem(STORAGE_KEY)).toContain(KEY);
+        expect(sessionStorage.getItem(STORAGE_KEY) ?? "").not.toContain(KEY); // memory only
     });
 
     it("switching to Claude loads its default model; compatible needs a valid base URL", async () => {
@@ -135,10 +141,15 @@ describe("AI Assistant section in Connection Settings", () => {
         expect(probe().enabled).toBe(true);
     });
 
-    it("is locked while connected (log out to change it)", () => {
-        saveAiSettings({ ...DEFAULT_SETTINGS, apiKey: KEY });
-        renderSection({ isConnected: true });
+    it("is locked while connected (log out to change it)", async () => {
+        const view = renderSection({ isConnected: false });
         fireEvent.click(screen.getByRole("button", { name: /AI Assistant/ }));
+        await act(async () => { fireEvent.change(screen.getByLabelText("API key"), { target: { value: KEY } }); });
+        view.rerender(
+            <QueryDashboardProvider>
+                <AiProvider config={{}}><AiSettingsSection isConnected /><Probe /></AiProvider>
+            </QueryDashboardProvider>
+        );
         expect(screen.getByLabelText("API key")).toBeDisabled();
         expect(screen.getByLabelText("Provider")).toBeDisabled();
         expect(screen.getByLabelText("Model")).toBeDisabled();
@@ -188,13 +199,19 @@ describe("AI Assistant section in Connection Settings", () => {
         expect(screen.queryByTestId("ai-locked")).toBeNull();
     });
 
-    it("a reloaded tab keeps the key; the field shows that without revealing it", () => {
-        saveAiSettings({ ...DEFAULT_SETTINGS, apiKey: KEY });
-        renderSection();
+    it("after a reload the key is gone (like the connection) and the status says AI off", async () => {
+        const first = renderSection();
+        fireEvent.click(screen.getByRole("button", { name: /AI Assistant/ }));
+        await act(async () => { fireEvent.change(screen.getByLabelText("API key"), { target: { value: KEY } }); });
+        await act(async () => { fireEvent.change(screen.getByLabelText("Model"), { target: { value: "gemini-3.5-flash-lite" } }); });
         expect(screen.getByTestId("ai-status")).toHaveTextContent("AI on");
+        first.unmount();
+
+        renderSection(); // a fresh page load in the same tab
+        expect(screen.getByTestId("ai-status")).toHaveTextContent("AI off");
         fireEvent.click(screen.getByRole("button", { name: /AI Assistant/ }));
         expect(screen.getByLabelText("API key")).toHaveValue("");
-        expect(screen.getByLabelText("API key")).toHaveAttribute("placeholder", "Key set for this tab");
+        expect(screen.getByLabelText("Model")).toHaveValue("gemini-3.5-flash-lite"); // the choice is remembered
     });
 
     it("is hidden when AI is switched off at build time", () => {

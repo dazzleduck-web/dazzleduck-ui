@@ -10,7 +10,6 @@ vi.mock("../../src/context/QueryDashboardContext", () => ({
 
 const { default: AiProvider } = await import("../../src/context/AiContext");
 const { useAi } = await import("../../src/context/aiContextCore");
-const { saveAiSettings, loadAiSettings, DEFAULT_SETTINGS } = await import("../../src/ai/aiSettings");
 
 const KEY = "AIza-test-SECRET-key-123456";
 let ai;
@@ -24,21 +23,20 @@ beforeEach(() => {
 
 describe("AI key lifetime", () => {
     it("is cleared when the connection ends for any reason (e.g. an expired token)", () => {
-        saveAiSettings({ ...DEFAULT_SETTINGS, apiKey: KEY });
         connectionInfo = { serverUrl: "http://localhost:8081", username: "admin", loginTime: 1 };
         const view = renderAi();
+        act(() => ai.setApiKey(KEY));
         expect(ai.settings.hasKey).toBe(true);
 
         // automatic logout: the context drops connectionInfo without the Logout button
         connectionInfo = null;
         act(() => view.rerender(<AiProvider config={{}}><Probe /></AiProvider>));
         expect(ai.settings.hasKey).toBe(false);
-        expect(loadAiSettings().apiKey).toBe("");
     });
 
     it("is kept while not yet connected (entered before Connect)", () => {
-        saveAiSettings({ ...DEFAULT_SETTINGS, apiKey: KEY });
         const view = renderAi();
+        act(() => ai.setApiKey(KEY));
         act(() => view.rerender(<AiProvider config={{}}><Probe /></AiProvider>));
         expect(ai.settings.hasKey).toBe(true);
     });
