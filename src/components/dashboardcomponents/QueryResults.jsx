@@ -2,11 +2,20 @@ import React from "react";
 import DisplayCharts from "../DisplayCharts";
 import { formatPossibleDate } from "../utils/DateNormalizer";
 
-const QueryResults = ({ data, loading, error, view, isConnected, width, height }) => {
+const QueryResults = ({ data, loading, loadingText, error, message, view, isConnected, width, height }) => {
     if (loading) {
         return (
             <div className="border overflow-auto max-h-[450px] bg-white rounded-lg scrollbar-custom">
-                <p className="text-gray-500 text-center p-10">Loading results...</p>
+                <p className="text-gray-500 text-center p-10">{loadingText || "Loading results..."}</p>
+            </div>
+        );
+    }
+
+    // A message from the AI assistant (e.g. reply to "hi", or why it couldn't build a query)
+    if (message) {
+        return (
+            <div className="border overflow-auto max-h-[450px] bg-blue-50 border-blue-200 rounded-lg">
+                <p className="text-blue-900 text-center p-8">{message}</p>
             </div>
         );
     }

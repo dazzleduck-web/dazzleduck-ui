@@ -14,6 +14,17 @@ function decompressZSTD(compressedData) {
     }
 }
 
+// Base64-encode bytes in chunks; spreading a large buffer into String.fromCharCode
+// overflows the call stack ("Maximum call stack size exceeded").
+function bytesToBase64(bytes) {
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    return btoa(binary);
+}
+
 // Custom ZSTD codec for Arrow
 // Note: encode is intentionally omitted since we only need decoding for reading compressed data
 const ZSTDCodec = {
@@ -261,7 +272,7 @@ export const QueryDashboardProvider = ({ children }) => {
                 return { type: "json", data: parsed };
             }
 
-            const base64 = btoa(String.fromCharCode(...safeBuffer));
+            const base64 = bytesToBase64(safeBuffer);
             return { type: "binary", contentType, base64 };
         } catch (err) {
             throw err;
@@ -360,6 +371,38 @@ export const QueryDashboardProvider = ({ children }) => {
             throw err;
         }
     }, [connectionInfo]);
+
+    // --- Meta Query (used by the AI assistant: parse checks, EXPLAIN, schema reads) ---
+    // Always runs directly on /v1/query, returns { rows, columns } and, unlike
+    // executeQuery, never touches the saved connection info (split size).
+    const executeMetaQuery = useCallback(async (serverUrl, sql) => {
+        if (!serverUrl || !sql) {
+            throw new Error("Server URL and SQL are required.");
+        }
+        const url = serverUrl.trim().replace(/\/+$/, "").replace(/\/v1\/query$/, "") + "/v1/query";
+        try {
+            const result = await forwardToDazzleDuck(url, sql, null, null);
+            if (result.type === "json") {
+                const rows = parseResponseData(result.data);
+                return { rows, columns: rows.length ? Object.keys(rows[0]).map((name) => ({ name, type: "" })) : [] };
+            }
+            const binary = Uint8Array.from(atob(result.base64), (c) => c.charCodeAt(0));
+            const table = tableFromIPC(binary);
+            const columns = table.schema.fields.map((f) => ({ name: f.name, type: String(f.type) }));
+            const rows = Array.from(table.toArray()).map((row) => {
+                const obj = {};
+                columns.forEach(({ name }) => (obj[name] = row[name]));
+                return obj;
+            });
+            return { rows, columns };
+        } catch (err) {
+            const data = err?.response?.data;
+            if (data instanceof ArrayBuffer) throw new Error(new TextDecoder("utf-8").decode(data));
+            if (typeof data === "string") throw new Error(data);
+            if (data && typeof data === "object") throw new Error(data.message || data.error || JSON.stringify(data));
+            throw err;
+        }
+    }, []);
 
     // --- Cancel Query ---
     const cancelQuery = useCallback(async (serverUrl, query, queryId) => {
@@ -746,6 +789,7 @@ export const QueryDashboardProvider = ({ children }) => {
         <QueryDashboardContext.Provider
             value={{
                 executeQuery,
+                executeMetaQuery,
                 login,
                 loginWithJwt,
                 logout,

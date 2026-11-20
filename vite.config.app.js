@@ -30,11 +30,11 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
     allowedHosts: ['dazzleduck-ui.com', 'www.dazzleduck-ui.com'],
-    hmr: {
-      host: 'dazzleduck-ui.com',
-      port: 8000,
-      protocol: 'ws'
-    }
+    // Custom HMR host only when running behind the dazzleduck-ui.com proxy
+    // (set HMR_HOST=dazzleduck-ui.com). Locally, use Vite's default HMR.
+    hmr: process.env.HMR_HOST
+      ? { host: process.env.HMR_HOST, port: 8000, protocol: 'ws' }
+      : true
   },
 
   build: {

@@ -3,6 +3,7 @@ import { HiOutlineX, HiOutlineChevronDoubleRight } from "react-icons/hi";
 import { AiFillCloseCircle, AiFillCheckCircle } from "react-icons/ai";
 import AdvancedSettings from "./AdvancedSettings";
 import SessionManagement from "./SessionManagement";
+import AiSettingsSection from "../ai/AiSettingsSection";
 import { FaRegEye, FaEyeSlash } from "react-icons/fa";
 
 const ConnectionPanel = ({
@@ -97,7 +98,7 @@ const ConnectionPanel = ({
                     </div>
                 </div>
 
-                <form className="space-y-4" onSubmit={handleSubmit(jwtMode ? onSubmitJwt : onSubmit)}>
+                <form id="connection-form" className="space-y-4" onSubmit={handleSubmit(jwtMode ? onSubmitJwt : onSubmit)}>
                     {/* Server URL */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -199,15 +200,23 @@ const ConnectionPanel = ({
                         jwtMode={jwtMode}
                     />
 
+                </form>
+
+                {/* AI Assistant (optional, user's own key): set before Connect.
+                    Outside the <form> on purpose, so password managers don't capture the key. */}
+                <AiSettingsSection isConnected={isConnected} />
+
+                <div className="mt-4 space-y-4">
                     {/* Login Error */}
                     {loginError && (
                         <p className="text-red-600 text-sm">{loginError}</p>
                     )}
 
-                    {/* Connect/Logout Buttons */}
+                    {/* Connect/Logout Buttons (the submit button belongs to the form via form=) */}
                     <div className="flex gap-2">
                         <button
                             type="submit"
+                            form="connection-form"
                             className={`flex-1 ${isConnected ? "bg-blue-300 hover:bg-blue-400" : "bg-blue-600 hover:bg-blue-700 cursor-pointer"} text-white font-medium py-2 rounded-lg mt-1 transition`}
                             disabled={isSubmitting || isConnected}
                         >
@@ -224,7 +233,7 @@ const ConnectionPanel = ({
                             </button>
                         )}
                     </div>
-                </form>
+                </div>
 
                 {/* Session Management */}
                 <SessionManagement

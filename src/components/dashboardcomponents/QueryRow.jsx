@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { HiOutlineChevronDoubleUp, HiOutlineChevronDoubleDown, HiOutlineX } from "react-icons/hi";
+import { HiOutlineChevronDoubleUp, HiOutlineChevronDoubleDown, HiOutlineX, HiOutlineSparkles } from "react-icons/hi";
 import QueryResults from "./QueryResults";
 import VariableManager from "./VariableManager";
+import GeneratedSqlPanel from "../ai/GeneratedSqlPanel";
+import AiRunSummary from "../ai/AiRunSummary";
 
 const QueryRow = ({
     row,
@@ -9,6 +11,8 @@ const QueryRow = ({
     queryId,
     isConnected,
     isCancelling,
+    aiEnabled = false,
+    aiHint = false,
     totalRows,
     updateRow,
     removeRow,
@@ -16,12 +20,23 @@ const QueryRow = ({
     handleCancelQuery,
     clearRowResults
 }) => {
-    const { data = [], loading = false, error = null } = result || {};
+    const {
+        data = [], loading = false, error = null, phase = null,
+        message = null, ai = null, canTreatAsQuestion = false,
+    } = result || {};
     const variables = row.variables || {};
 
     // State for editable Results title
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [titleValue, setTitleValue] = useState(row.resultTitle || "Results");
+    const [showGeneratedSql, setShowGeneratedSql] = useState(false);
+
+    const runLabel = loading ? (phase === "generating" ? "Generating SQL..." : "Running...") : "Run";
+
+    const applyGeneratedSql = (sql) => {
+        updateRow(row.id, "query", sql);
+        setShowGeneratedSql(false);
+    };
 
     // Available view options
     const views = ["table", "line", "bar", "pie"];
@@ -116,21 +131,28 @@ const QueryRow = ({
                                 handleRunQuery(row);
                             }
                         }}
-                        placeholder="e.g. SELECT * FROM read_arrow('/your/file.arrow');"
+                        placeholder={aiEnabled
+                            ? "SQL or a question, e.g. SELECT * FROM read_arrow('/your/file.arrow')  or  count rows per type"
+                            : "e.g. SELECT * FROM read_arrow('/your/file.arrow');"}
                         rows={5}
                         className="w-full border border-gray-400 rounded-lg p-3 text-sm h-35 scrollbar-custom"
                     />
                     <div className="flex justify-end items-center gap-3 mt-3">
+                        {aiHint && (
+                            <p className="mr-auto text-xs text-gray-500" data-testid="ai-hint">
+                                Add an AI key in Connection Settings to ask in plain English.
+                            </p>
+                        )}
                         <button
                             onClick={() => handleRunQuery(row)}
                             disabled={loading || !isConnected}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition disabled:opacity-50 cursor-pointer"
                         >
-                            {loading ? "Running..." : "Run"}
+                            {runLabel}
                         </button>
                         <button
                             onClick={() => handleCancelQuery(row)}
-                            disabled={!isConnected || isCancelling || !queryId || result?.loading === false}
+                            disabled={!isConnected || isCancelling || !loading || (phase !== "generating" && !queryId)}
                             className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition disabled:opacity-50 cursor-pointer"
                         >
                             {isCancelling ? "Canceling..." : "Cancel"}
@@ -171,6 +193,16 @@ const QueryRow = ({
                         </h2>
                     )}
 
+                    {/* AI badge + generated SQL toggle */}
+                    {!loading && (
+                        <AiRunSummary
+                            ai={ai}
+                            showSql={showGeneratedSql}
+                            onToggleSql={() => setShowGeneratedSql((v) => !v)}
+                            className="mr-auto ml-4"
+                        />
+                    )}
+
                     {/* View selection radio buttons */}
                     <div className="flex items-center gap-5">
                         {views.map((v) => (
@@ -192,13 +224,34 @@ const QueryRow = ({
                     </div>
                 </div>
 
+                {showGeneratedSql && !loading && (
+                    <GeneratedSqlPanel
+                        ai={ai}
+                        onUseAsSql={applyGeneratedSql}
+                        onClose={() => setShowGeneratedSql(false)}
+                    />
+                )}
+
                 <QueryResults
                     data={data}
                     loading={loading}
+                    loadingText={phase === "generating" ? "Generating SQL from your question..." : undefined}
                     error={error}
+                    message={message}
                     view={row.view}
                     isConnected={isConnected}
                 />
+
+                {canTreatAsQuestion && !loading && (
+                    <div className="mt-2 flex justify-end">
+                        <button
+                            onClick={() => handleRunQuery(row, { forceQuestion: true })}
+                            className="flex items-center gap-1 text-sm px-3 py-1 rounded-md border border-amber-500 text-amber-800 hover:bg-amber-50 cursor-pointer"
+                        >
+                            <HiOutlineSparkles /> Treat as a question instead
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
