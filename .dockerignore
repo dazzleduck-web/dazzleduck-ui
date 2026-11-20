@@ -1,0 +1,14 @@
+# Keep secrets and local artefacts out of the Docker build context.
+# Vite inlines VITE_* env values into the bundle, so an env file copied into
+# the image would leak its keys into the built JavaScript.
+.env
+.env.*
+!.env.example
+
+node_modules
+dist
+dist-app
+coverage
+.git
+.idea
+.vscode

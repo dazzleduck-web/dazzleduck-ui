@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useQueryDashboard } from "../../context/QueryDashboardContext";
 import QueryResults from "../dashboardcomponents/QueryResults";
-import SearchTable from "../dashboardcomponents/SearchTable";
+import DataTable from "../dashboardcomponents/DataTable";
 import DisplayCharts from "../DisplayCharts";
 import { substituteVariables } from "../../hooks/useQueryManagement";
 import { validateRequiredProps, validateTab } from "./utils/validateProps.jsx";
@@ -183,14 +183,22 @@ const DazzleduckUI = ({ tab, jwt, config, view = "table", width, height }) => {
     switch (tab) {
         case "search":
             return (
-                <SearchTable
+                <DataTable
                     title="Search Results"
                     data={filteredSearchData}
                     loading={false}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    onSearch={() => {}}
                     error={searchError}
+                    headerSlot={
+                        <div className="bg-white border-b border-gray-300 shadow-md p-3 sm:p-4 md:p-6 flex justify-center">
+                            <input
+                                type="text"
+                                placeholder="Search data here..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full sm:w-[90%] md:w-[80%] border border-gray-400 rounded-md font-mono shadow-sm outline-none px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm"
+                            />
+                        </div>
+                    }
                 />
             );
 

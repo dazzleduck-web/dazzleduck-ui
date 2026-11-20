@@ -16,7 +16,7 @@ export { default as QueryResults } from "../components/dashboardcomponents/Query
 export { default as VariableManager } from "../components/dashboardcomponents/VariableManager.jsx";
 export { default as AdvancedSettings } from "../components/dashboardcomponents/AdvancedSettings.jsx";
 export { default as SessionManagement } from "../components/dashboardcomponents/SessionManagement.jsx";
-export { default as SearchTable } from "../components/dashboardcomponents/SearchTable.jsx";
+export { default as DataTable } from "../components/dashboardcomponents/DataTable.jsx";
 export { default as PopupMessage } from "../components/utils/PopupMessage.jsx";
 
 // Custom hooks for QueryDashboard

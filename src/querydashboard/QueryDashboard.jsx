@@ -3,6 +3,7 @@ import { HiOutlineArrowUp, HiOutlineArrowDown } from "react-icons/hi";
 import { BsSearch } from "react-icons/bs";
 import "../App.css";
 import { useQueryDashboard } from "../context/QueryDashboardContext";
+import { useAi } from "../context/aiContextCore";
 import { useQueryManagement } from "../hooks/useQueryManagement";
 import { useConnectionForm } from "../hooks/useConnectionForm";
 import { useSessionManagement } from "../hooks/useSessionManagement";
@@ -11,6 +12,8 @@ import ConnectionPanel from "../components/dashboardcomponents/ConnectionPanel";
 import QueryRow from "../components/dashboardcomponents/QueryRow";
 import PopupMessage from "../components/utils/PopupMessage";
 import DataTable from "../components/dashboardcomponents/DataTable";
+import AiRunSummary from "../components/ai/AiRunSummary";
+import GeneratedSqlPanel from "../components/ai/GeneratedSqlPanel";
 import NamedQueryBrowser from "../components/dashboardcomponents/namedquery/NamedQueryBrowser";
 
 const QueryDashboard = () => {
@@ -33,6 +36,7 @@ const QueryDashboard = () => {
     const showPopup = (message, type = "success") => setPopup({ message, type, visible: true });
 
     const [showConnection, setShowConnection] = useState(true);
+    const [showSearchSql, setShowSearchSql] = useState(false);
 
     // Connection form management
     const connectionForm = useConnectionForm(login, loginWithJwt, logout, connectionInfo);
@@ -42,12 +46,16 @@ const QueryDashboard = () => {
         url: connectionForm.connection?.url,
     });
 
+    // AI query assistant (disabled when no <AiProvider> is present)
+    const ai = useAi();
+
     // Query management
     const queryManagement = useQueryManagement(
         executeQuery,
         cancelQuery,
         connectionForm.isConnected,
-        connectionForm.connection
+        connectionForm.connection,
+        ai
     );
 
     // Session management
@@ -63,6 +71,7 @@ const QueryDashboard = () => {
     );
 
     const handleLogout = () => {
+        // The AI key is cleared by AiProvider whenever the connection ends (security layer 3)
         connectionForm.handleLogout();
         queryManagement.resetRows();
         namedQuery.resetAll();
@@ -137,6 +146,8 @@ const QueryDashboard = () => {
                             queryId={queryManagement.queryIds[row.id]}
                             isConnected={connectionForm.isConnected}
                             isCancelling={queryManagement.cancellingQueries[row.id]}
+                            aiEnabled={ai.enabled}
+                            aiHint={ai.available && !ai.enabled}
                             totalRows={queryManagement.rows.length}
                             updateRow={queryManagement.updateRow}
                             removeRow={queryManagement.removeRow}
@@ -184,7 +195,7 @@ const QueryDashboard = () => {
                             <div className="flex w-full sm:w-[90%] md:w-[80%] border border-gray-400 rounded-md p-1 font-mono shadow-sm">
                                 <input
                                     type="text"
-                                    placeholder="Search data with SQL query..."
+                                    placeholder={ai.enabled ? "Search with SQL or a question, e.g. top 10 metrics by max value" : "Search data with SQL query..."}
                                     value={queryManagement.searchQuery}
                                     onChange={(e) => queryManagement.setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && queryManagement.runSearchQuery(queryManagement.searchQuery)}
@@ -197,6 +208,35 @@ const QueryDashboard = () => {
                                     <BsSearch className="text-base sm:text-xl" />
                                 </button>
                             </div>
+                            {queryManagement.searchLoading && ai.enabled && (
+                                <p className="text-xs text-gray-500">Working on your search...</p>
+                            )}
+                            {ai.available && !ai.enabled && (
+                                <p className="text-xs text-gray-500" data-testid="search-ai-hint">
+                                    Add an AI key in Connection Settings to search in plain English.
+                                </p>
+                            )}
+                            {!queryManagement.searchLoading && queryManagement.searchAi && (
+                                <div className="w-full sm:w-[90%] md:w-[80%]">
+                                    <AiRunSummary
+                                        ai={queryManagement.searchAi}
+                                        showSql={showSearchSql}
+                                        onToggleSql={() => setShowSearchSql((v) => !v)}
+                                    />
+                                    {showSearchSql && (
+                                        <div className="mt-2">
+                                            <GeneratedSqlPanel
+                                                ai={queryManagement.searchAi}
+                                                onUseAsSql={(sql) => {
+                                                    queryManagement.setSearchQuery(sql);
+                                                    setShowSearchSql(false);
+                                                }}
+                                                onClose={() => setShowSearchSql(false)}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     }
                 />
